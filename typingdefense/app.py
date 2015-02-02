@@ -1,18 +1,58 @@
+import sdl2
 import sdl2.ext
-import gamemenu
+from OpenGL import GL
+from .menu import Menu
 from .mainmenu import MainMenuScreen
+from .resources import Resources
+import numpy
 
 class App(object):
     def __init__(self):
         """Initialize the App."""
         sdl2.ext.init()
+
+        self.resources = Resources(resource_path="resources",
+                                   texture_path="textures",
+                                   shader_path="shaders")
+
+        self.window_width = 800
+        self.window_height = 600
         self._window = sdl2.ext.Window("Typing Defense",
-                                       size=(800, 600),
+                                       size=(self.window_width,
+                                             self.window_height),
                                        flags=sdl2.SDL_WINDOW_OPENGL)
-        self._menu = gamemenu.Menu(MainMenuScreen())
+        self._gl_context = None
+        self._init_gl()
+
+        self._menu = Menu(MainMenuScreen(self))
 
     def __del__(self):
+        """Shut down the App."""
+        sdl2.SDL_GL_DeleteContext(self._gl_context)
         sdl2.ext.quit()
+
+    def _init_gl(self):
+        """Set up OpenGL."""
+        sdl2.video.SDL_GL_SetAttribute(
+            sdl2.video.SDL_GL_CONTEXT_MAJOR_VERSION, 3)
+        sdl2.video.SDL_GL_SetAttribute(
+            sdl2.video.SDL_GL_CONTEXT_MINOR_VERSION, 1)
+        sdl2.video.SDL_GL_SetAttribute(
+            sdl2.video.SDL_GL_CONTEXT_PROFILE_MASK,
+            sdl2.video.SDL_GL_CONTEXT_PROFILE_CORE)
+        sdl2.video.SDL_GL_SetAttribute(
+            sdl2.video.SDL_GL_DOUBLEBUFFER, 1)
+        self._gl_context = sdl2.SDL_GL_CreateContext(self._window.window)
+
+        GL.glClearColor(0, 0, 0, 1)
+
+    def _draw(self):
+        """Draw the next frame."""
+        GL.glClear(GL.GL_STENCIL_BUFFER_BIT |
+                   GL.GL_DEPTH_BUFFER_BIT |
+                   GL.GL_COLOR_BUFFER_BIT)
+        self._menu.draw()
+        sdl2.SDL_GL_SwapWindow(self._window.window)
 
     def run(self):
         """Run the App."""
@@ -25,4 +65,4 @@ class App(object):
                     run = False
                     break
 
-            self._window.refresh()
+            self._draw()
