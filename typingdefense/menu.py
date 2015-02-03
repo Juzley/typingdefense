@@ -1,4 +1,5 @@
 from OpenGL import GL
+import ctypes
 import numpy
 
 
@@ -27,25 +28,34 @@ class MenuScreen(object):
 
         # Load the background image info.
         if self._background:
-            app.resources.load_texture(self._background)
-            self._bg_shader = app.resources.load_shader_program("test.vs",
+            # Load the shader program
+            self._bg_shader = app.resources.load_shader_program("ortho.vs",
                                                                 "test.fs")
+
+            # Set up the texture
+            self._bg_tex = app.resources.load_texture(self._background)
+            self._bg_texUnitUniform = GL.glGetUniformLocation(
+                self._bg_shader.program, 'texUnit')
+
+            # Set up geometry
             self._bg_vao = GL.glGenVertexArrays(1)
             GL.glBindVertexArray(self._bg_vao)
             self._bg_vbo = GL.glGenBuffers(1)
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self._bg_vbo)
             verts = numpy.array(
-                [-1.0, -1.0, 0.0,
-                 -1.0, 1.0, 0.0,
-                 1.0, -1.0, 0.0,
-                 1.0, 1.0, 0.0],
+                # X   Y  U  V
+                [-1, -1, 0, 0,
+                 -1,  1, 0, 1,
+                  1, -1, 1, 0,
+                  1,  1, 1, 1],
                 dtype=numpy.float32)
             GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
                             GL.GL_STATIC_DRAW)
             GL.glEnableVertexAttribArray(0)
-            GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
-            GL.glBindVertexArray(0)
-
+            GL.glEnableVertexAttribArray(1)
+            GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 16, None)
+            GL.glVertexAttribPointer(1, 2, GL.GL_FLOAT, GL.GL_FALSE, 16,
+                                     ctypes.c_void_p(8))
             GL.glBindVertexArray(0)
 
     def __del__(self):
@@ -55,9 +65,15 @@ class MenuScreen(object):
     def draw(self):
         if self._background:
             GL.glUseProgram(self._bg_shader.program)
+
+            self._bg_tex.bind()
+            GL.glUniform1i(self._bg_texUnitUniform, 0)
+
             GL.glBindVertexArray(self._bg_vao)
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+
             GL.glBindVertexArray(0)
+            GL.glUseProgram(0)
 
 
 class Menu(object):

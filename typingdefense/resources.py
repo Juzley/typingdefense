@@ -9,15 +9,17 @@ class Texture(object):
         self.filename = filename
         image = sdl2.ext.load_image(filename)
 
+        # TODO: Need to sort this
         #if sdl2.SDL_ISPIXELFORMAT_ALPHA(ctypes.uint_32(image.format)):
-        pixel_format = GL.GL_RGBA
+        pixel_format = GL.GL_RGB
         #else:
         #    pixel_format = GL.GL_RGB
 
         self._id = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self._id)
         GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, image.w, image.h, 0,
-                        pixel_format, GL.GL_UNSIGNED_BYTE, ctypes.c_void_p(image.pixels))
+                        pixel_format, GL.GL_UNSIGNED_BYTE,
+                        ctypes.c_void_p(image.pixels))
         GL.glTexParameterf(GL.GL_TEXTURE_2D,
                            GL.GL_TEXTURE_MIN_FILTER,
                            GL.GL_LINEAR)
@@ -25,6 +27,9 @@ class Texture(object):
                            GL.GL_TEXTURE_MAG_FILTER,
                            GL.GL_LINEAR)
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+
+    def bind(self):
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self._id)
 
 
 class Shader(object):

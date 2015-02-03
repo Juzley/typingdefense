@@ -1,5 +1,10 @@
 #version 140
-void main(void)
+
+uniform sampler2D texUnit;
+in vec2 texCoords;
+out vec4 outColour;
+
+void main()
 {
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    outColour = texture2D(texUnit, texCoords.st);
 }
