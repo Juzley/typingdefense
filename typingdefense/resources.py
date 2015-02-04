@@ -46,6 +46,12 @@ class ShaderProgram(object):
         self.program = shaders.compileProgram(vertex_shader.shader,
                                               fragment_shader.shader)
 
+    def use(self):
+        GL.glUseProgram(self.program)
+
+    def uniform(self, name):
+        return GL.glGetUniformLocation(self.program, name)
+
 
 class Resources(object):
     def __init__(self, resource_path="", texture_path="", shader_path=""):

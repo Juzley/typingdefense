@@ -30,12 +30,11 @@ class MenuScreen(object):
         if self._background:
             # Load the shader program
             self._bg_shader = app.resources.load_shader_program("ortho.vs",
-                                                                "test.fs")
+                                                                "texture.fs")
 
             # Set up the texture
             self._bg_tex = app.resources.load_texture(self._background)
-            self._bg_texUnitUniform = GL.glGetUniformLocation(
-                self._bg_shader.program, 'texUnit')
+            self._bg_texunit_uniform = self._bg_shader.uniform('texUnit')
 
             # Set up geometry
             self._bg_vao = GL.glGenVertexArrays(1)
@@ -64,10 +63,9 @@ class MenuScreen(object):
 
     def draw(self):
         if self._background:
-            GL.glUseProgram(self._bg_shader.program)
-
+            self._bg_shader.use()
             self._bg_tex.bind()
-            GL.glUniform1i(self._bg_texUnitUniform, 0)
+            GL.glUniform1i(self._bg_texunit_uniform, 0)
 
             GL.glBindVertexArray(self._bg_vao)
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)

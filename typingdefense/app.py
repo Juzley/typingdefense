@@ -4,7 +4,7 @@ from OpenGL import GL
 from .menu import Menu
 from .mainmenu import MainMenuScreen
 from .resources import Resources
-import numpy
+from .game import Game
 
 class App(object):
     def __init__(self):
@@ -25,6 +25,7 @@ class App(object):
         self._init_gl()
 
         self._menu = Menu(MainMenuScreen(self))
+        self._game = Game(self)
 
     def __del__(self):
         """Shut down the App."""
@@ -51,7 +52,8 @@ class App(object):
         GL.glClear(GL.GL_STENCIL_BUFFER_BIT |
                    GL.GL_DEPTH_BUFFER_BIT |
                    GL.GL_COLOR_BUFFER_BIT)
-        self._menu.draw()
+        #self._menu.draw()
+        self._game.draw()
         sdl2.SDL_GL_SwapWindow(self._window.window)
 
     def run(self):
