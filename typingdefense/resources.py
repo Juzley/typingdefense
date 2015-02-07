@@ -1,8 +1,44 @@
 import sdl2
 import sdl2.ext
+import ctypes
+import collections
 from OpenGL import GL
 from OpenGL.GL import shaders
-import ctypes
+from contextlib import contextmanager
+
+# TODO: contextmanagers?
+
+class Font(object):
+    def __init__(self, filename):
+        with open(filename, 'rb') as f:
+            ex = RuntimeError("Invalid font file {}".format(filename))
+            if f.read(4) != "FONT":
+                raise ex
+
+            texture_name_length = int.from_bytes(f.read(4), byteorder='little')
+            if texture_name_length < 0:
+                raise ex
+
+            self._texture = Texture(f.read(texture_name_length).decode())
+
+            # Skip the two bytes of image height and width, which we get from
+            # the image itself.
+            f.seek(8, 1)
+
+            self._charheight = int.from_bytes(f.read(4), byteorder='little')
+            if self._charheight < 0:
+                raise ex
+
+            self._chars = {}
+            charinfo = collections.namedtuple('CharInfo', ['x', 'y', 'width'])
+            c = f.read(1).decode()
+            while len(c):
+                self._chars[c] = charinfo(
+                    int.from_bytes(f.read(4), byteorder='little'),
+                    int.from_bytes(f.read(4), byteorder='little'),
+                    int.from_bytes(f.read(4), byteorder='little'))
+                c = f.read(1).decode()
+
 
 class Texture(object):
     def __init__(self, filename):
@@ -46,21 +82,30 @@ class ShaderProgram(object):
         self.program = shaders.compileProgram(vertex_shader.shader,
                                               fragment_shader.shader)
 
+    @contextmanager
     def use(self):
+        print(self.program)
         GL.glUseProgram(self.program)
+        try:
+            yield
+        finally:
+            GL.glUseProgram(0)
 
     def uniform(self, name):
         return GL.glGetUniformLocation(self.program, name)
 
 
 class Resources(object):
-    def __init__(self, resource_path="", texture_path="", shader_path=""):
+    def __init__(self, resource_path="", texture_path="", shader_path="",
+                 font_path=""):
         self.resource_path = resource_path
         self.texture_path = texture_path
         self.shader_path = shader_path
+        self.font_path = font_path
         self._textures = {}
         self._shaders = {}
         self._shader_programs = {}
+        self._fonts = {}
 
     def _build_path(self, path, filename):
         return "/".join([self.resource_path, path, filename])
@@ -89,3 +134,10 @@ class Resources(object):
             self._shader_programs[(vs_path, fs_path)] = program
 
         return self._shader_programs[(vs_path, fs_path)]
+
+    def load_font(self, filename):
+        path = self._build_path(self.font_path, filename)
+        if path not in self._fonts:
+            self._fonts[path] = Font(path)
+
+        return self._fonts[path]
