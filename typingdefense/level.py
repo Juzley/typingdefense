@@ -1,6 +1,7 @@
 import math
 import numpy
 from OpenGL import GL
+import typingdefense.glutils as glutils
 
 
 class Tile(object):
@@ -50,15 +51,14 @@ class Tile(object):
         # Put all the points into the same vertex buffer: top then mid.
         verts = numpy.array(top_verts + vert_verts, numpy.float32)
 
-        self._vao = GL.glGenVertexArrays(1)
-        self._vbo = GL.glGenBuffers(1)
-        GL.glBindVertexArray(self._vao)
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self._vbo)
-        GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
-                        GL.GL_STATIC_DRAW)
-        GL.glEnableVertexAttribArray(0)
-        GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
-        GL.glBindVertexArray(0)
+        self._vao = glutils.VertexArray()
+        self._vbo = glutils.VertexBuffer()
+        with self._vao.bind():
+            self._vbo.bind()
+            GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
+                            GL.GL_STATIC_DRAW)
+            GL.glEnableVertexAttribArray(0)
+            GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
     def _setup_shader(self, resources):
         """Load the shader program for the tile."""
@@ -80,15 +80,11 @@ class Tile(object):
                               self._cam.trans_matrix_as_array())
         GL.glUniform4f(self._colour_uniform, 1.0, 1.0, 1.0, 1.0)
 
-        GL.glBindVertexArray(self._vao)
-        GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
-        GL.glLineWidth(3)
-        GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
-        GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
-
-        GL.glDrawArrays(GL.GL_LINES, 12, 12)
-        GL.glLineWidth(1)
-        GL.glBindVertexArray(0)
+        with self._vao.bind(), glutils.linewidth(3):
+            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
+            GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
+            GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
+            GL.glDrawArrays(GL.GL_LINES, 12, 12)
 
         GL.glUseProgram(0)
 

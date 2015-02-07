@@ -30,14 +30,9 @@ class VertexBuffer(object):
         self._id = GL.glGenBuffers(1)
 
     def bind(self):
+        """Bind the vertex buffer.
+
+        This is not a context manager as we often want to leave the buffer
+        bound under a VAO.
+        """
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self._id)
-
-    def bind_and_set_data(self, data):
-        self.bind()
-        verts = numpy.array(data, numpy.float32)
-        GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
-                        GL.GL_STATIC_DRAW)
-
-
-
-
