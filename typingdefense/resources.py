@@ -4,7 +4,6 @@ import ctypes
 import collections
 from OpenGL import GL
 from OpenGL.GL import shaders
-from contextlib import contextmanager
 
 # TODO: contextmanagers?
 
@@ -82,14 +81,8 @@ class ShaderProgram(object):
         self.program = shaders.compileProgram(vertex_shader.shader,
                                               fragment_shader.shader)
 
-    @contextmanager
     def use(self):
-        print(self.program)
         GL.glUseProgram(self.program)
-        try:
-            yield
-        finally:
-            GL.glUseProgram(0)
 
     def uniform(self, name):
         return GL.glGetUniformLocation(self.program, name)

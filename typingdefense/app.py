@@ -13,7 +13,8 @@ class App(object):
 
         self.resources = Resources(resource_path="resources",
                                    texture_path="textures",
-                                   shader_path="shaders")
+                                   shader_path="shaders",
+                                   font_path="fonts")
 
         self.window_width = 800
         self.window_height = 600
