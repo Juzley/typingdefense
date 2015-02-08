@@ -6,6 +6,7 @@ from .mainmenu import MainMenuScreen
 from .resources import Resources
 from .game import Game
 
+
 class App(object):
     def __init__(self):
         """Initialize the App."""
@@ -48,12 +49,19 @@ class App(object):
 
         GL.glClearColor(0, 0, 0, 1)
 
+        GL.glEnable(GL.GL_BLEND)
+        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+
+        # TODO: Sort this
+        # GL.glEnable(GL.GL_CULL_FACE)
+        # GL.glCullFace(GL.GL_BACK)
+
     def _draw(self):
         """Draw the next frame."""
         GL.glClear(GL.GL_STENCIL_BUFFER_BIT |
                    GL.GL_DEPTH_BUFFER_BIT |
                    GL.GL_COLOR_BUFFER_BIT)
-        #self._menu.draw()
+        # self._menu.draw()
         self._game.draw()
         sdl2.SDL_GL_SwapWindow(self._window.window)
 

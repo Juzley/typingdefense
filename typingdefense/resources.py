@@ -1,24 +1,35 @@
+"""Module containing classes for managing resources."""
 import sdl2
 import sdl2.ext
 import ctypes
 import collections
+import os
 from OpenGL import GL
 from OpenGL.GL import shaders
 
 # TODO: contextmanagers?
 
+
 class Font(object):
+    """Class representing texture-mapped fonts."""
+
     def __init__(self, filename):
         with open(filename, 'rb') as f:
-            ex = RuntimeError("Invalid font file {}".format(filename))
-            if f.read(4) != "FONT":
-                raise ex
+            header = f.read(4).decode()
+            if header != "FONT":
+                raise RuntimeError(
+                    "Invalid font file {}, bad header {}".format(filename,
+                                                                 header))
 
             texture_name_length = int.from_bytes(f.read(4), byteorder='little')
             if texture_name_length < 0:
-                raise ex
+                raise RuntimeError(
+                    "Invalid font file {}, bad texture name".format(filename))
 
-            self._texture = Texture(f.read(texture_name_length).decode())
+            texture_name = f.read(texture_name_length).decode()
+            texture_path = "{}/{}".format(os.path.dirname(filename),
+                                          texture_name)
+            self._texture = Texture(texture_path)
 
             # Skip the two bytes of image height and width, which we get from
             # the image itself.
@@ -26,7 +37,8 @@ class Font(object):
 
             self._charheight = int.from_bytes(f.read(4), byteorder='little')
             if self._charheight < 0:
-                raise ex
+                raise RuntimeError(
+                    "Invalid font file {}, bad char heigh".format(filename))
 
             self._chars = {}
             charinfo = collections.namedtuple('CharInfo', ['x', 'y', 'width'])
@@ -38,17 +50,44 @@ class Font(object):
                     int.from_bytes(f.read(4), byteorder='little'))
                 c = f.read(1).decode()
 
+    def bind(self):
+        """Bind the texture for a font."""
+        self._texture.bind()
+
+    def char_width(self, c, h):
+        """Return the width, in pixels, for a given character."""
+        charinfo = self._chars[c]
+        return charinfo.width * h / self._charheight
+
+    def texcoords(self, c):
+        """Return the texture coordinates for a given character.
+
+        The coordinates are returned as an 8 element tuple containing the
+        texture coordinates in the following order: bottom left, bottom right
+        top left, top right.
+        """
+        charinfo = self._chars[c]
+        x = charinfo.x / self._texture.width
+        y = charinfo.y / self._texture.height
+        w = charinfo.width / self._texture.width
+        h = self._charheight / self._texture.height
+        return [x,     y + h,  # Bottom Left
+                x + w, y + h,  # Bottom Right
+                x,     y,      # Top Left
+                x + w, y]      # Top Right
+
 
 class Texture(object):
     def __init__(self, filename):
         self.filename = filename
         image = sdl2.ext.load_image(filename)
+        self._width = image.w
+        self._height = image.h
 
-        # TODO: Need to sort this
-        #if sdl2.SDL_ISPIXELFORMAT_ALPHA(ctypes.uint_32(image.format)):
-        pixel_format = GL.GL_RGB
-        #else:
-        #    pixel_format = GL.GL_RGB
+        if sdl2.SDL_ISPIXELFORMAT_ALPHA(image.format.contents.format):
+            pixel_format = GL.GL_RGBA
+        else:
+            pixel_format = GL.GL_RGB
 
         self._id = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self._id)
@@ -66,6 +105,14 @@ class Texture(object):
     def bind(self):
         GL.glBindTexture(GL.GL_TEXTURE_2D, self._id)
 
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
+
 
 class Shader(object):
     def __init__(self, filename, shader_type):
@@ -77,15 +124,24 @@ class Shader(object):
 
 
 class ShaderProgram(object):
-    def __init__(self, vertex_shader, fragment_shader):
+    def __init__(self, vertex_shader, fragment_shader, uniforms=[]):
         self.program = shaders.compileProgram(vertex_shader.shader,
                                               fragment_shader.shader)
+        self._uniforms = {}
+        for uniform in uniforms:
+            self._lookup_uniform(uniform)
+
+    def _lookup_uniform(self, uniform):
+        if uniform not in self._uniforms:
+            self._uniforms[uniform] = GL.glGetUniformLocation(self.program,
+                                                              uniform)
 
     def use(self):
         GL.glUseProgram(self.program)
 
     def uniform(self, name):
-        return GL.glGetUniformLocation(self.program, name)
+        self._lookup_uniform(name)
+        return self._uniforms[name]
 
 
 class Resources(object):

@@ -2,7 +2,6 @@ import numpy
 from OpenGL import GL
 from contextlib import contextmanager
 
-
 @contextmanager
 def linewidth(width):
     GL.glLineWidth(width)
