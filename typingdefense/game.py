@@ -16,3 +16,8 @@ class Game(object):
     def draw(self):
         self._level.draw()
         self._hud.draw()
+
+    def on_click(self, x, y):
+        self._hud.on_click(x, y)
+        self._level.on_click(x, y)
+

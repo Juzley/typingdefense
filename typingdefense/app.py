@@ -75,5 +75,8 @@ class App(object):
                 if event.type == sdl2.SDL_QUIT:
                     run = False
                     break
+                elif event.type == sdl2.SDL_MOUSEBUTTONDOWN:
+                    self._game.on_click(event.button.x,
+                                        self.window_height - event.button.y)
 
             self._draw()

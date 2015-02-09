@@ -4,6 +4,24 @@ from OpenGL import GL
 import typingdefense.glutils as glutils
 
 
+class TilePickingShader(object):
+    def __init__(self, app):
+        self._shader = app.resources.load_shader_program('level.vs',
+                                                         'picking.fs')
+        self._transmatrix_uniform = self._shader.uniform('transMatrix')
+        self._colour_uniform = self._shader.uniform('colourIn')
+
+    def use(self):
+        self._shader.use()
+
+    def set_coords(self, q, r):
+        GL.glUniform4f(self._colour_uniform, q, r, 0, 0)
+
+    def set_transmatrix(self, mat):
+        GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
+                              mat)
+
+
 class Tile(object):
     """Class representing a single tile in a level."""
     SIZE = 1
@@ -82,11 +100,25 @@ class Tile(object):
 
         with self._vao.bind(), glutils.linewidth(3):
             GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
+            GL.glUniform4f(self._colour_uniform, 0.0, 1.0, 0.0, 1.0)
             GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
             GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
             GL.glDrawArrays(GL.GL_LINES, 12, 12)
 
         GL.glUseProgram(0)
+
+    def picking_draw(self, picking_shader):
+        """Draw to the picking framebuffer.
+
+        This allows us to determine which tile was hit by mouse events.
+        """
+        picking_shader.set_transmatrix(self._cam.trans_matrix_as_array())
+        picking_shader.set_coords(self.q, self.r)
+        with self._vao.bind(), glutils.linewidth(3):
+            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
+            GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
+            GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
+            GL.glDrawArrays(GL.GL_LINES, 12, 12)
 
 
 class Base(object):
@@ -146,9 +178,15 @@ class Level(object):
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
 
+        # TODO: Consider whether this should be in Tile or not.
+        # Maybe move tile drawing etc to level class?
         self._shader = app.resources.load_shader_program("level.vs",
                                                          "level.fs")
         self._transmatrix_uniform = self._shader.uniform('transMatrix')
+
+        self._picking_texture = glutils.PickingTexture(app.window_width,
+                                                       app.window_height)
+        self._picking_shader = TilePickingShader(app)
 
         self._min_p, self._max_p = (0, 0)
         self._min_r, self._max_r = (0, 0)
@@ -170,9 +208,22 @@ class Level(object):
         self._base = Base(app, self._cam, 0, 0, Tile.HEIGHT)
 
     def draw(self):
+        # Do the picking draw first.
+        with self._picking_texture.enable():
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+            self._picking_shader.use()
+            for _, tile in numpy.ndenumerate(self._tiles):
+                if tile:
+                    tile.picking_draw(self._picking_shader)
+            GL.glUseProgram(0)
+
+        # Now actually draw the tiles
         for _, tile in numpy.ndenumerate(self._tiles):
             if tile:
                 tile.draw()
         self._base.draw()
 
         GL.glUseProgram(0)
+
+    def on_click(self, x, y):
+        print(self._picking_texture.read(x, y))

@@ -61,9 +61,9 @@ class Text(object):
                 width = self._font.char_width(c, self._height)
                 tc = self._font.texcoords(c)
 
-                data += [x,         y,                tc[0], tc[1],  # Bot Left
-                         x + width, y,                tc[2], tc[3],  # Bot Right
-                         x,         y + self._height, tc[4], tc[5],  # Top Left
+                data += [x, y, tc[0], tc[1],                         # Bot Left
+                         x + width, y, tc[2], tc[3],                 # Bot Right
+                         x, y + self._height, tc[4], tc[5],          # Top Left
                          x + width, y + self._height, tc[6], tc[7]]  # Top Right
                 x += width
 
