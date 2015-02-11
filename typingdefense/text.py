@@ -16,8 +16,7 @@ class Text(object):
         center = 2
         right = 3
 
-    def __init__(self, app, font, text, x, y, height, align=Align.left):
-        self._app = app
+    def __init__(self, font, text, x, y, height, align=Align.left):
         self._font = font
         self._vao = glutils.VertexArray()
         self._vbo = glutils.VertexBuffer()
@@ -27,11 +26,6 @@ class Text(object):
         self._y = y
         self._text = None
         self.text = text
-
-        self._shader = app.resources.load_shader_program('ortho.vs',
-                                                         'texture.fs')
-        self._screen_uniform = self._shader.uniform('screenDimensions')
-        self._texunit_uniform = self._shader.uniform('texUnit')
 
     @property
     def text(self):
@@ -82,13 +76,26 @@ class Text(object):
                 self._font.bind()
 
     def draw(self):
+        with self._vao.bind():
+            for i in range(len(self._text)):
+                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, i * 4, 4)
+
+
+class Text2D(Text):
+    def __init__(self, app, font, text, x, y, height, align=Text.Align.left):
+        super().__init__(font, text, x, y, height, align)
+
+        self._app = app
+        self._shader = app.resources.load_shader_program('ortho.vs',
+                                                         'texture.fs')
+        self._screen_uniform = self._shader.uniform('screenDimensions')
+        self._texunit_uniform = self._shader.uniform('texUnit')
+
+    def draw(self):
         """Draw the text."""
         self._shader.use()
         GL.glUniform2f(self._screen_uniform,
                        self._app.window_width, self._app.window_height)
         GL.glUniform1i(self._texunit_uniform, 0)
-
-        with self._vao.bind():
-            for i in range(len(self._text)):
-                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, i * 4, 4)
+        super().draw()
         GL.glUseProgram(0)

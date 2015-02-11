@@ -1,7 +1,7 @@
 import numpy
 import OpenGL.GL as GL
 import typingdefense.glutils as glutils
-from typingdefense.text import Text
+from typingdefense.text import Text, Text2D
 
 
 class Button(object):
@@ -52,8 +52,8 @@ class Button(object):
 class Hud(object):
     def __init__(self, app):
         font = app.resources.load_font("hudfont.fnt")
-        self._test_text = Text(app, font, "TEST!", 400, 300, 32,
-                               Text.Align.center)
+        self._test_text = Text2D(app, font, "TEST!", 400, 300, 32,
+                                 Text.Align.center)
         self._test_button = Button(app, 400, 400)
 
     def draw(self):

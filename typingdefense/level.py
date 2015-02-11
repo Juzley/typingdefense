@@ -2,6 +2,8 @@ import math
 import numpy
 from OpenGL import GL
 import typingdefense.glutils as glutils
+from typingdefense.vector import Vector
+from typingdefense.enemy import Enemy
 
 
 class TilePickingShader(object):
@@ -173,6 +175,7 @@ class Base(object):
 
 class Level(object):
     """Class representing a game level."""
+    # TODO: cam should be part of level probably
     def __init__(self, app, game):
         self._cam = game.cam
         self._vao = GL.glGenVertexArrays(1)
@@ -193,6 +196,8 @@ class Level(object):
         self._tiles = None
         self._base = None
         self.load(app)
+
+        self._enemies = [Enemy(app, game.cam, Vector(0, 0, 1))]
 
     def load(self, app):
         self._min_p = -2
@@ -222,8 +227,10 @@ class Level(object):
             if tile:
                 tile.draw()
         self._base.draw()
-
         GL.glUseProgram(0)
+
+        for enemy in self._enemies:
+            enemy.draw()
 
     def on_click(self, x, y):
         print(self._picking_texture.read(x, y))
