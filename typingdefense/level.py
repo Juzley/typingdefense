@@ -1,9 +1,46 @@
 import math
 import numpy
+import weakref
+import sdl2
 from OpenGL import GL
 import typingdefense.glutils as glutils
 from typingdefense.vector import Vector
 from typingdefense.enemy import Enemy
+
+
+def _cube_round(fc):
+    """Round fractional cube-format hex coordinates."""
+    rx = round(fc.x)
+    ry = round(fc.y)
+    rz = round(fc.z)
+
+    x_diff = abs(rx - fc.x)
+    y_diff = abs(ry - fc.y)
+    z_diff = abs(rz - fc.z)
+
+    if x_diff > y_diff and x_diff > z_diff:
+        rx = -ry - rz
+    elif y_diff > z_diff:
+        ry = -rx - rz
+    else:
+        rz = -rx - ry
+
+    return Vector(rx, ry, rz)
+
+
+def _hex_round(fh):
+    """Round fractional axial-format hex coordinates."""
+    return _cube_to_hex(_cube_round(_hex_to_cube(fh)))
+
+
+def _hex_to_cube(h):
+    """Convert axial-format hex coordinates to cube-format."""
+    return Vector(h.q, -h.q - h.r, h.r)
+
+
+def _cube_to_hex(c):
+    """Convert cube-format hex coordinates to hex."""
+    return Vector(c.x, c.z)
 
 
 class TilePickingShader(object):
@@ -16,8 +53,8 @@ class TilePickingShader(object):
     def use(self):
         self._shader.use()
 
-    def set_coords(self, q, r):
-        GL.glUniform4f(self._colour_uniform, q, r, 0, 0)
+    def set_coords(self, coords):
+        GL.glUniform4f(self._colour_uniform, coords.q, coords.r, 0, 0)
 
     def set_transmatrix(self, mat):
         GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
@@ -33,16 +70,15 @@ class Tile(object):
     VERT_SPACING = HEIGHT * 0.75
     HORIZ_SPACING = WIDTH
 
-    def __init__(self, app, cam, q, r, height):
+    def __init__(self, app, cam, coords, height):
         """Construct a (hexagonal) tile.
 
-        p and q are the horizontal coordinates of the tile (using axial
-        coordinates).
+        coords is a vector containing the horizontal coordinates of the tile,
+        using axial coordinates.
         height is the number of stacks in the tile.
         """
         self._cam = cam
-        self.q = q
-        self.r = r
+        self.coords = coords
         self.height = height
 
         self._vao = None
@@ -56,15 +92,14 @@ class Tile(object):
 
     def _setup_vert_buffers(self):
         """Populate the vertex buffers for the tile."""
-        x, y = self.world_location()
         z = 0
 
         # The top layer of the tile is drawn with a line loop.
         # The vertical sections are drawn with lines.
         top_verts, vert_verts = ([], [])
         for i in range(6):
-            px = x + Tile.SIZE * math.sin((2 * math.pi / 6) * i)
-            py = y + Tile.SIZE * math.cos((2 * math.pi / 6) * i)
+            px = self.x + Tile.SIZE * math.sin((2 * math.pi / 6) * i)
+            py = self.y + Tile.SIZE * math.cos((2 * math.pi / 6) * i)
             top_verts.extend([px, py, z + Tile.DEPTH])
             vert_verts.extend([px, py, z, px, py, z + Tile.DEPTH])
 
@@ -87,11 +122,33 @@ class Tile(object):
         self._transmatrix_uniform = self._shader.uniform('transMatrix')
         self._colour_uniform = self._shader.uniform('colourIn')
 
-    def world_location(self):
-        """Determine the location in world coordinates of the tile center."""
-        x = Tile.SIZE * math.sqrt(3) * (self.q + self.r / 2)
-        y = Tile.SIZE * (3 / 2) * self.r
-        return (x, y)
+    @property
+    def q(self):
+        return self.coords.q
+
+    @property
+    def r(self):
+        return self.coords.r
+
+    @property
+    def x(self):
+        """Calculate the x value of the world location of the tile center."""
+        return Tile.SIZE * math.sqrt(3) * (self.q + self.r / 2)
+
+    @property
+    def y(self):
+        """Calculate the y value of the world location of the tile center."""
+        return Tile.SIZE * (3 / 2) * self.r
+
+    @staticmethod
+    def world_to_tile_coords(world_coords):
+        # TODO: is this in the right place?
+        """Convert world (x, y) coordinates to tile (q, r) coordinates.
+
+        Note that this is a 2D conversion only."""
+        q = (world_coords.x * math.sqrt(3) / 3 - world_coords.y / 3) / Tile.SIZE
+        r = (world_coords.y * 2 / 3) / Tile.SIZE
+        return _hex_round(Vector(q, r))
 
     def draw(self):
         """Draw the tile."""
@@ -115,7 +172,7 @@ class Tile(object):
         This allows us to determine which tile was hit by mouse events.
         """
         picking_shader.set_transmatrix(self._cam.trans_matrix_as_array())
-        picking_shader.set_coords(self.q, self.r)
+        picking_shader.set_coords(self.coords)
         with self._vao.bind(), glutils.linewidth(3):
             GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
             GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
@@ -125,13 +182,13 @@ class Tile(object):
 
 class Base(object):
     """Class representing the player's base."""
-    def __init__(self, app, cam, x, y, z):
+    def __init__(self, app, cam, origin, z):
         self._cam = cam
 
         top_verts, mid_verts, bottom_verts = ([], [], [])
         for i in range(6):
-            px = x + math.sin((2 * math.pi / 6) * i)
-            py = y + Tile.SIZE * math.cos((2 * math.pi / 6) * i)
+            px = origin.x + math.sin((2 * math.pi / 6) * i)
+            py = origin.y + Tile.SIZE * math.cos((2 * math.pi / 6) * i)
             top_verts.extend([px, py, z + 1])
             bottom_verts.extend([px, py, z])
             mid_verts.extend([px, py, z, px, py, z + 1])
@@ -177,6 +234,7 @@ class Level(object):
     """Class representing a game level."""
     # TODO: cam should be part of level probably
     def __init__(self, app, game):
+        self._app = app
         self._cam = game.cam
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
@@ -191,26 +249,27 @@ class Level(object):
                                                        app.window_height)
         self._picking_shader = TilePickingShader(app)
 
-        self._min_p, self._max_p = (0, 0)
-        self._min_r, self._max_r = (0, 0)
+        self._min_coords = None
+        self._max_coords = None
         self._tiles = None
         self._base = None
         self.load(app)
 
+        self._target = None
         self._enemies = [Enemy(app, game.cam, Vector(0, 0, 1))]
 
+        self._editing = False
+
     def load(self, app):
-        self._min_p = -2
-        self._max_p = 2
-        self._min_r = 0
-        self._max_r = 2
+        self._min_coords = Vector(-2, 0)
+        self._max_coords = Vector(2, 2)
 
         self._tiles = numpy.matrix(
-            [[None, None, Tile(app, self._cam, 0, 0, 0), Tile(app, self._cam, 1, 0, 0), Tile(app, self._cam, 2, 0, 0)],
-             [None, Tile(app, self._cam, -1, 1, 0), Tile(app, self._cam, 0, 1, 0), Tile(app, self._cam, 1, 1, 0), Tile(app, self._cam, 2, 1, 0)],
-             [None, Tile(app, self._cam, -1, 2, 0), Tile(app, self._cam, 0, 2, 0), Tile(app, self._cam, 1, 2, 0), None],
-             [Tile(app, self._cam, -2, 3, 0), Tile(app, self._cam, -1, 3, 0), Tile(app, self._cam, 0, 3, 0), Tile(app, self._cam, 1, 3, 0), None]])
-        self._base = Base(app, self._cam, 0, 0, Tile.HEIGHT)
+            [[None, None, Tile(app, self._cam, Vector(0, 0), 0), Tile(app, self._cam, Vector(1, 0), 0), Tile(app, self._cam, Vector(2, 0), 0)],
+             [None, Tile(app, self._cam, Vector(-1, 1), 0), Tile(app, self._cam, Vector(0, 1), 0), Tile(app, self._cam, Vector(1, 1), 0), Tile(app, self._cam, Vector(2, 1), 0)],
+             [None, Tile(app, self._cam, Vector(-1, 2), 0), Tile(app, self._cam, Vector(0, 2), 0), Tile(app, self._cam, Vector(1, 2), 0), None],
+             [Tile(app, self._cam, Vector(-2, 3), 0), Tile(app, self._cam, Vector(-1, 3), 0), Tile(app, self._cam, Vector(0, 3), 0), Tile(app, self._cam, Vector(1, 3), 0), None]])
+        self._base = Base(app, self._cam, Vector(0, 0), Tile.HEIGHT)
 
     def draw(self):
         # Do the picking draw first.
@@ -233,4 +292,78 @@ class Level(object):
             enemy.draw()
 
     def on_click(self, x, y):
-        print(self._picking_texture.read(x, y))
+        if self._editing:
+            # Work out if we hit an existing tile
+            tile = self._screen_coords_to_tile(Vector(x, y))
+            if tile:
+                # TODO: something here
+                pass
+            else:
+                print("No tile")
+                tile_coords = self._screen_coords_to_tile_coords(Vector(x, y))
+                print(tile_coords)
+                if self._tile_coords_valid(tile_coords):
+                    print("valid")
+                    index = self._tile_coords_to_array_index(tile_coords)
+                    print(index)
+                    self._tiles[index.y, index.x] = Tile(self._app,
+                                                         self._cam,
+                                                         tile_coords, 0)
+
+    def on_keydown(self, key):
+        if key == sdl2.SDLK_F12:
+            self._editing = not self._editing
+
+    def on_text(self, c):
+        self._update_target(c)
+        if self._target and self._target():
+            # TODO: Enemy should have an on-text rather than getting the
+            # phrase directly, to allow for stuff doing things on miss etc.
+            target = self._target()
+            target.phrase.on_type(c)
+
+    def _tile_coords_to_array_index(self, coords):
+        return Vector(coords.q - self._min_coords.q,
+                      coords.r - self._min_coords.r)
+
+    def _lookup_tile(self, coords):
+        """Look up a tile from its (q, r) coordinates."""
+        index = self._tile_coords_to_array_index(coords)
+        return self._tiles[index.y, index.x]
+
+    def _screen_coords_to_tile(self, coords):
+        pixel_info = self._picking_texture.read(coords.x, coords.y)
+
+        # The blue value will be 0 if no tile was hit
+        if pixel_info[2] == 0:
+            return None
+
+        # The q and r coordinates are stored in the r and g values, respectively
+        return self._lookup_tile(Vector(pixel_info[0], pixel_info[1]))
+
+    def _screen_coords_to_tile_coords(self, coords):
+        """Convert screen coordinates to tile coordinates.
+
+        Returns a vector containing the coordinates on the q and r axes.
+
+        This will return a value even if there is no tile currently at the
+        coordinates (in contrast to _screen_coords_to_tile). This does not
+        take into account the height of tiles - it unprojects the click to
+        world-space with a Z-value of 0."""
+        print("Projecting {}".format(coords))
+        world_coords = self._cam.unproject(coords, 0)
+        print("Result {}".format(world_coords))
+        return Tile.world_to_tile_coords(world_coords)
+
+    def _tile_coords_valid(self, tc):
+        """Determine whether a given set of tile coordinates is within range."""
+        return (tc.q >= self._min_coords.q and tc.q <= self._max_coords.q and
+                tc.r >= self._min_coords.r and tc.r <= self._max_coords.r)
+
+    def _update_target(self, c):
+        """Check whether we have a target, and find a new one if not."""
+        if not self._target or not self._target():
+            targets = [enemy for enemy in self._enemies
+                       if enemy.phrase.start == c]
+            if targets:
+                self._target = weakref.ref(targets[0])

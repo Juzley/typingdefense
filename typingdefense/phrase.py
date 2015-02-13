@@ -61,10 +61,15 @@ class Phrase(object):
         """Whether the last character typed was correct."""
         return self._hit
 
+    @property
+    def start(self):
+        """Returns the first character of the phrase."""
+        return self._text.text[0]
+
     def on_type(self, c):
         """Update the phrase on typing text targetted at it."""
         if self._typed_chars < len(self._text.text):
-            if c == self._text_text[self._typed_chars]:
+            if c == self._text.text[self._typed_chars]:
                 self._typed_chars += 1
                 self._hit = True
             else:

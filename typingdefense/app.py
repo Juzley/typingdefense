@@ -78,5 +78,10 @@ class App(object):
                 elif event.type == sdl2.SDL_MOUSEBUTTONDOWN:
                     self._game.on_click(event.button.x,
                                         self.window_height - event.button.y)
+                elif event.type == sdl2.SDL_TEXTINPUT:
+                    for c in event.text.text:
+                        self._game.on_text(chr(c))
+                elif event.type == sdl2.SDL_KEYDOWN:
+                    self._game.on_keydown(event.key.keysym.sym)
 
             self._draw()

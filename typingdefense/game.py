@@ -21,3 +21,8 @@ class Game(object):
         self._hud.on_click(x, y)
         self._level.on_click(x, y)
 
+    def on_keydown(self, key):
+        self._level.on_keydown(key)
+
+    def on_text(self, c):
+        self._level.on_text(c)

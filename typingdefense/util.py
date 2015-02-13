@@ -1,9 +1,32 @@
 """Various utility classes and functions."""
+import sdl2
 import math
 
 
-class Colour(object):
+class Timer(object):
+    def __init__(self):
+        self._paused = False
+        self._prev_time = 0
+        self.time = 0
+        self.frametime = 0
 
+    def update(self):
+        time = sdl2.SDL_GetTicks() / 1000
+
+        if not self._paused:
+            self.frametime = time - self._prev_time
+            self.time += self.frametime
+
+        self._prev_time = time
+
+    def pause(self):
+        self._paused = True
+
+    def unpause(self):
+        self._paused = False
+
+
+class Colour(object):
     """Colour class, representing both RGB+A and HSV+A.
 
     RGB values range from 0-1.

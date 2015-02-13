@@ -84,4 +84,4 @@ class PickingTexture(object):
             pixel = GL.glReadPixels(x, y, 1, 1, GL.GL_RGB, GL.GL_FLOAT)
             GL.glReadBuffer(GL.GL_NONE)
 
-        return pixel
+        return pixel[0][0]
