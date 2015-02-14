@@ -2,6 +2,7 @@ import math
 import numpy
 import weakref
 import sdl2
+import json
 from OpenGL import GL
 import typingdefense.glutils as glutils
 from typingdefense.vector import Vector
@@ -255,7 +256,37 @@ class Level(object):
              [None, Tile(app, self._cam, Vector(-1, 1), 0), Tile(app, self._cam, Vector(0, 1), 0), Tile(app, self._cam, Vector(1, 1), 0), Tile(app, self._cam, Vector(2, 1), 0)],
              [None, Tile(app, self._cam, Vector(-1, 2), 0), Tile(app, self._cam, Vector(0, 2), 0), Tile(app, self._cam, Vector(1, 2), 0), None],
              [Tile(app, self._cam, Vector(-2, 3), 0), Tile(app, self._cam, Vector(-1, 3), 0), Tile(app, self._cam, Vector(0, 3), 0), Tile(app, self._cam, Vector(1, 3), 0), None]])
+
+        width = self._max_coords.x - self._min_coords.x + 1
+        height = self._max_coords.y - self._min_coords.y + 1
+        self._tiles = numpy.empty([height, width], dtype=object)
+        try:
+            with open('resources/levels/test_level.tdl', 'r') as f:
+                lvl_info = json.load(f)
+                for tile_info in lvl_info['tiles']:
+                    coords = Vector(tile_info['q'], tile_info['r'])
+                    idx = self._tile_coords_to_array_index(coords)
+                    self._tiles[idx.y, idx.x] = Tile(app,
+                                                     self._cam,
+                                                     coords,
+                                                     tile_info['height'])
+        except FileNotFoundError:
+            pass
+
         self._base = Base(app, self._cam, Vector(0, 0), Tile.HEIGHT)
+
+    def _save(self):
+        level = {}
+        level['name'] = 'Test Level'
+
+        tiles = []
+        for _, tile in numpy.ndenumerate(self._tiles):
+            if tile:
+                tiles.append({'q': tile.q, 'r': tile.r, 'height': tile.height})
+        level['tiles'] = tiles
+
+        with open('resources/levels/test_level.tdl', 'w') as f:
+            json.dump(level, f)
 
     def draw(self):
         # Do the picking draw first.
@@ -295,6 +326,9 @@ class Level(object):
     def on_keydown(self, key):
         if key == sdl2.SDLK_F12:
             self._editing = not self._editing
+        elif key == sdl2.SDLK_s:
+            if self._editing:
+                self._save()
 
     def on_text(self, c):
         self._update_target(c)
