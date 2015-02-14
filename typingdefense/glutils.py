@@ -38,6 +38,53 @@ class VertexBuffer(object):
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self._id)
 
 
+class ShaderInstance(object):
+    class _CtxMgr(object):
+        def __enter__(self):
+            pass
+
+        def __exit__(self, ex_type, ex_value, traceback):
+            GL.glUseProgram(0)
+
+    def __init__(self, app, vertex_shader, fragment_shader, uniforms):
+        self._program = app.resources.load_shader_program(vertex_shader,
+                                                          fragment_shader)
+        self._uniforms = {}
+        for uniform in uniforms:
+            self._uniform_cache_add(uniform[0], uniform[1], uniform[2])
+
+    def _uniform_cache_add(self, name, gl_type, value):
+        self._uniforms[name] = (self._program.uniform(name), gl_type, value)
+
+    def _dl_uniform(self, info):
+        """Download a uniform value to the shader."""
+        uniform, gl_type, value = info
+
+        if gl_type == GL.GL_FLOAT_VEC4:
+            GL.glUniform4f(uniform,
+                            value[0], value[1], value[2], value[3])
+        elif gl_type == GL.GL_FLOAT_MAT4:
+            GL.glUniformMatrix4fv(uniform, 1, GL.GL_TRUE, value)
+
+    def set_uniform(self, name, value=None, download=True):
+        """Set a uniform, optionally updating its value first.
+
+        The shader must be bound before calling this method."""
+        if value:
+            self._uniforms[name] = (self._uniforms[name][0],
+                                    self._uniforms[name][1],
+                                    value) 
+        if download:
+            self._dl_uniform(self._uniforms[name])
+
+    def use(self, download_uniforms=True):
+        self._program.use()
+        if download_uniforms:
+            for uniform_info in self._uniforms.values():
+                self._dl_uniform(uniform_info)
+        return ShaderInstance._CtxMgr()
+
+
 class PickingTexture(object):
     def __init__(self, window_width, window_height):
         self._framebuf = GL.glGenFramebuffers(1)

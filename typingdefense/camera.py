@@ -51,8 +51,6 @@ class Camera(object):
         x = screen_coords.x * 2 / self.screen_width - 1
         y = screen_coords.y * 2 / self.screen_height - 1
 
-        print("x {} y {}".format(x, y))
-
         inv_trans = np.linalg.inv(self.trans_matrix)
         near_coords = np.array([[x], [y], [0], [1]])
         far_coords = np.array([[x], [y], [1], [1]])
@@ -66,8 +64,6 @@ class Camera(object):
 
         world_neartofar = world_far - world_near
         ratio = (world_z - world_near[2, 0]) / world_neartofar[2, 0]
-
-        print("near {} far {}".format(world_near, world_far))
 
         return Vector(world_near[0, 0] + (world_neartofar[0, 0] * ratio),
                       world_near[1, 0] + (world_neartofar[1, 0] * ratio),

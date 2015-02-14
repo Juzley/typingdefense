@@ -43,24 +43,6 @@ def _cube_to_hex(c):
     return Vector(c.x, c.z)
 
 
-class TilePickingShader(object):
-    def __init__(self, app):
-        self._shader = app.resources.load_shader_program('level.vs',
-                                                         'picking.fs')
-        self._transmatrix_uniform = self._shader.uniform('transMatrix')
-        self._colour_uniform = self._shader.uniform('colourIn')
-
-    def use(self):
-        self._shader.use()
-
-    def set_coords(self, coords):
-        GL.glUniform4f(self._colour_uniform, coords.q, coords.r, 0, 0)
-
-    def set_transmatrix(self, mat):
-        GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
-                              mat)
-
-
 class Tile(object):
     """Class representing a single tile in a level."""
     SIZE = 1
@@ -171,8 +153,8 @@ class Tile(object):
 
         This allows us to determine which tile was hit by mouse events.
         """
-        picking_shader.set_transmatrix(self._cam.trans_matrix_as_array())
-        picking_shader.set_coords(self.coords)
+        picking_shader.set_uniform('colourIn',
+                                   [self.coords.q, self.coords.r, 0, 0])
         with self._vao.bind(), glutils.linewidth(3):
             GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
             GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
@@ -247,7 +229,11 @@ class Level(object):
 
         self._picking_texture = glutils.PickingTexture(app.window_width,
                                                        app.window_height)
-        self._picking_shader = TilePickingShader(app)
+        self._picking_shader = glutils.ShaderInstance(
+            app, 'level.vs', 'picking.fs',
+            [['transMatrix', GL.GL_FLOAT_MAT4,
+              game.cam.trans_matrix_as_array()],
+             ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
 
         self._min_coords = None
         self._max_coords = None
@@ -274,12 +260,12 @@ class Level(object):
     def draw(self):
         # Do the picking draw first.
         with self._picking_texture.enable():
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-            self._picking_shader.use()
-            for _, tile in numpy.ndenumerate(self._tiles):
-                if tile:
-                    tile.picking_draw(self._picking_shader)
-            GL.glUseProgram(0)
+            with self._picking_shader.use():
+                GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+                self._picking_shader.set_uniform('transMatrix')
+                for _, tile in numpy.ndenumerate(self._tiles):
+                    if tile:
+                        tile.picking_draw(self._picking_shader)
 
         # Now actually draw the tiles
         for _, tile in numpy.ndenumerate(self._tiles):
@@ -299,13 +285,9 @@ class Level(object):
                 # TODO: something here
                 pass
             else:
-                print("No tile")
                 tile_coords = self._screen_coords_to_tile_coords(Vector(x, y))
-                print(tile_coords)
                 if self._tile_coords_valid(tile_coords):
-                    print("valid")
                     index = self._tile_coords_to_array_index(tile_coords)
-                    print(index)
                     self._tiles[index.y, index.x] = Tile(self._app,
                                                          self._cam,
                                                          tile_coords, 0)
@@ -350,9 +332,7 @@ class Level(object):
         coordinates (in contrast to _screen_coords_to_tile). This does not
         take into account the height of tiles - it unprojects the click to
         world-space with a Z-value of 0."""
-        print("Projecting {}".format(coords))
         world_coords = self._cam.unproject(coords, 0)
-        print("Result {}".format(world_coords))
         return Tile.world_to_tile_coords(world_coords)
 
     def _tile_coords_valid(self, tc):
