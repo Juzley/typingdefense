@@ -8,10 +8,10 @@ from collections import deque
 from enum import Enum, unique
 from OpenGL import GL
 import typingdefense.glutils as glutils
-from typingdefense.vector import Vector
-from typingdefense.enemy import Enemy
-from typingdefense.util import Timer
-from typingdefense.hud import Hud
+from .vector import Vector
+from .enemy import Enemy
+from .util import Timer
+from .hud import Hud
 
 
 def _cube_round(fc):
@@ -257,14 +257,6 @@ class Level(object):
               game.cam.trans_matrix_as_array()],
              ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
 
-        # Level state
-        self.timer = Timer()
-        self.gold = 0
-        self.state = Level.State.build
-        self._target = None
-        self._enemies = [Enemy(app, game.cam, Vector(0, 0, 1))]
-        self._editing = False
-
         # Map/graphics etc.
         self._min_coords = None
         self._max_coords = None
@@ -272,6 +264,17 @@ class Level(object):
         self._base = None
         self.load(app)
         self._build_paths()
+
+        # Level state
+        self.timer = Timer()
+        self.gold = 0
+        self.state = Level.State.build
+        self._target = None
+        self._enemies = [Enemy(app,
+                               game.cam,
+                               self.timer,
+                               self._lookup_tile(Vector(5, -2)))]
+        self._editing = False
 
         self._hud = Hud(app, self)
 
@@ -459,6 +462,8 @@ class Level(object):
         start = self._lookup_tile(Vector(0, 0))
         if not start:
             return
+
+        # TODO: consider height
 
         frontier = deque([start])
         visited = set([start])
