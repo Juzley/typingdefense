@@ -50,16 +50,18 @@ class Button(object):
 
 
 class Hud(object):
-    def __init__(self, app):
+    def __init__(self, app, level):
         font = app.resources.load_font("hudfont.fnt")
+        self._level = level
         self._test_text = Text2D(app, font, "TEST!", 400, 300, 32,
                                  Text.Align.center)
-        self._test_button = Button(app, 400, 400)
+        self._play_button = Button(app, 10, 10)
 
     def draw(self):
         self._test_text.draw()
-        self._test_button.draw()
+        self._play_button.draw()
 
     def on_click(self, x, y):
-        if self._test_button.hit(x, y):
-            pass
+        if self._play_button.hit(x, y):
+            self._level.play()
+            return True

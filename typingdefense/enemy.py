@@ -9,3 +9,12 @@ class Enemy(object):
 
     def draw(self):
         self.phrase.draw(self.origin)
+
+    def on_text(self, c):
+        self.phrase.on_type(c)
+
+    def unlink(self):
+        return self.phrase.complete
+
+    def update(self, timer):
+        pass

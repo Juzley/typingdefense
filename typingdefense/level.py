@@ -1,12 +1,17 @@
+"""Module containing all classes required to represent and handle a level."""
 import math
 import numpy
 import weakref
 import sdl2
 import json
+from collections import deque
+from enum import Enum, unique
 from OpenGL import GL
 import typingdefense.glutils as glutils
 from typingdefense.vector import Vector
 from typingdefense.enemy import Enemy
+from typingdefense.util import Timer
+from typingdefense.hud import Hud
 
 
 def _cube_round(fc):
@@ -63,6 +68,7 @@ class Tile(object):
         self._cam = cam
         self.coords = coords
         self.height = height
+        self.path_next = None
 
         self._vao = None
         self._vbo = None
@@ -107,10 +113,12 @@ class Tile(object):
 
     @property
     def q(self):
+        """The axial q coord of the tile."""
         return self.coords.q
 
     @property
     def r(self):
+        """The axial r coord of the tile."""
         return self.coords.r
 
     @property
@@ -125,13 +133,18 @@ class Tile(object):
 
     @staticmethod
     def world_to_tile_coords(world_coords):
-        # TODO: is this in the right place?
         """Convert world (x, y) coordinates to tile (q, r) coordinates.
 
         Note that this is a 2D conversion only."""
+        # TODO: is this in the right place?
         q = (world_coords.x * math.sqrt(3) / 3 - world_coords.y / 3) / Tile.SIZE
         r = (world_coords.y * 2 / 3) / Tile.SIZE
         return _hex_round(Vector(q, r))
+
+    @property
+    def empty(self):
+        # TODO
+        return True
 
     def draw(self):
         """Draw the tile."""
@@ -195,6 +208,7 @@ class Base(object):
         self._colour_uniform = self._shader.uniform('colourIn')
 
     def draw(self):
+        """Draw the base."""
         self._shader.use()
         GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
                               self._cam.trans_matrix_as_array())
@@ -215,6 +229,13 @@ class Base(object):
 
 class Level(object):
     """Class representing a game level."""
+
+    @unique
+    class State(Enum):
+        """Enumeration of different level states."""
+        defend = 1
+        build = 2
+
     # TODO: cam should be part of level probably
     def __init__(self, app, game):
         self._app = app
@@ -236,26 +257,28 @@ class Level(object):
               game.cam.trans_matrix_as_array()],
              ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
 
+        # Level state
+        self.timer = Timer()
+        self.gold = 0
+        self.state = Level.State.build
+        self._target = None
+        self._enemies = [Enemy(app, game.cam, Vector(0, 0, 1))]
+        self._editing = False
+
+        # Map/graphics etc.
         self._min_coords = None
         self._max_coords = None
         self._tiles = None
         self._base = None
         self.load(app)
+        self._build_paths()
 
-        self._target = None
-        self._enemies = [Enemy(app, game.cam, Vector(0, 0, 1))]
-
-        self._editing = False
+        self._hud = Hud(app, self)
 
     def load(self, app):
-        self._min_coords = Vector(-2, 0)
-        self._max_coords = Vector(2, 2)
-
-        self._tiles = numpy.matrix(
-            [[None, None, Tile(app, self._cam, Vector(0, 0), 0), Tile(app, self._cam, Vector(1, 0), 0), Tile(app, self._cam, Vector(2, 0), 0)],
-             [None, Tile(app, self._cam, Vector(-1, 1), 0), Tile(app, self._cam, Vector(0, 1), 0), Tile(app, self._cam, Vector(1, 1), 0), Tile(app, self._cam, Vector(2, 1), 0)],
-             [None, Tile(app, self._cam, Vector(-1, 2), 0), Tile(app, self._cam, Vector(0, 2), 0), Tile(app, self._cam, Vector(1, 2), 0), None],
-             [Tile(app, self._cam, Vector(-2, 3), 0), Tile(app, self._cam, Vector(-1, 3), 0), Tile(app, self._cam, Vector(0, 3), 0), Tile(app, self._cam, Vector(1, 3), 0), None]])
+        """Load the level."""
+        self._min_coords = Vector(-100, -100)
+        self._max_coords = Vector(100, 100)
 
         width = self._max_coords.x - self._min_coords.x + 1
         height = self._max_coords.y - self._min_coords.y + 1
@@ -276,6 +299,7 @@ class Level(object):
         self._base = Base(app, self._cam, Vector(0, 0), Tile.HEIGHT)
 
     def _save(self):
+        """Save the edited level to file."""
         level = {}
         level['name'] = 'Test Level'
 
@@ -289,6 +313,9 @@ class Level(object):
             json.dump(level, f)
 
     def draw(self):
+        """Draw the level."""
+        self._hud.draw()
+
         # Do the picking draw first.
         with self._picking_texture.enable():
             with self._picking_shader.use():
@@ -308,22 +335,48 @@ class Level(object):
         for enemy in self._enemies:
             enemy.draw()
 
+    def play(self):
+        """Move from build into play state."""
+        if self.state == Level.State.build:
+            self.state = Level.State.defend
+
+    def update(self):
+        """Advance the game state."""
+        self.timer.update()
+
+        for enemy in self._enemies:
+            enemy.update(self.timer)
+
+        unlink_enemies = [e for e in self._enemies if e.unlink()]
+        for enemy in unlink_enemies:
+            self._enemies.remove(enemy)
+
     def on_click(self, x, y):
-        if self._editing:
-            # Work out if we hit an existing tile
-            tile = self._screen_coords_to_tile(Vector(x, y))
-            if tile:
-                # TODO: something here
-                pass
+        """Handle a mouse click."""
+        hit_hud = self._hud.on_click(x, y)
+
+        if not hit_hud:
+            if self._editing:
+                # Work out if we hit an existing tile
+                tile = self._screen_coords_to_tile(Vector(x, y))
+                if not tile:
+                    tile_coords = self._screen_coords_to_tile_coords(
+                        Vector(x, y))
+                    if self._tile_coords_valid(tile_coords):
+                        index = self._tile_coords_to_array_index(tile_coords)
+                        self._tiles[index.y, index.x] = Tile(self._app,
+                                                             self._cam,
+                                                             tile_coords, 0)
             else:
-                tile_coords = self._screen_coords_to_tile_coords(Vector(x, y))
-                if self._tile_coords_valid(tile_coords):
-                    index = self._tile_coords_to_array_index(tile_coords)
-                    self._tiles[index.y, index.x] = Tile(self._app,
-                                                         self._cam,
-                                                         tile_coords, 0)
+                tile = self._screen_coords_to_tile(Vector(x, y))
+                if tile:
+                    print("Tile: {},{}".format(tile.q, tile.r))
+                    if tile.path_next:
+                        print("    Next: {},{}".format(tile.path_next.q,
+                                                       tile.path_next.r))
 
     def on_keydown(self, key):
+        """Handle keydown events."""
         if key == sdl2.SDLK_F12:
             self._editing = not self._editing
         elif key == sdl2.SDLK_s:
@@ -331,23 +384,28 @@ class Level(object):
                 self._save()
 
     def on_text(self, c):
+        """Handle text input."""
         self._update_target(c)
         if self._target and self._target():
             # TODO: Enemy should have an on-text rather than getting the
             # phrase directly, to allow for stuff doing things on miss etc.
             target = self._target()
-            target.phrase.on_type(c)
+            target.on_text(c)
 
     def _tile_coords_to_array_index(self, coords):
+        """Work out the array slot for a given set of axial tile coords."""
         return Vector(coords.q - self._min_coords.q,
                       coords.r - self._min_coords.r)
 
     def _lookup_tile(self, coords):
         """Look up a tile from its (q, r) coordinates."""
+        if not self._tile_coords_valid:
+            return None
         index = self._tile_coords_to_array_index(coords)
         return self._tiles[index.y, index.x]
 
     def _screen_coords_to_tile(self, coords):
+        """Work out which tile a given point in screen coordinates is in."""
         pixel_info = self._picking_texture.read(coords.x, coords.y)
 
         # The blue value will be 0 if no tile was hit
@@ -373,6 +431,45 @@ class Level(object):
         """Determine whether a given set of tile coordinates is within range."""
         return (tc.q >= self._min_coords.q and tc.q <= self._max_coords.q and
                 tc.r >= self._min_coords.r and tc.r <= self._max_coords.r)
+
+    def _tile_neighbours(self, tile):
+        """Find the neighbouring tiles for a given tile.
+
+        Takes a Tile and returns a list of Tiles.
+        Does not consider whether a given tile is empty or not.
+        """
+        dirs = [(+1, 0), (+1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+        neighbours = []
+        for d in dirs:
+            neighbour_coords = Vector(tile.q + d[0], tile.r + d[1])
+            neighbour = self._lookup_tile(neighbour_coords)
+            if neighbour:
+                neighbours.append(neighbour)
+        return neighbours
+
+    def _build_paths(self):
+        """Calculate paths from each tile to the base."""
+        # Clear any previous path info
+        for _, tile in numpy.ndenumerate(self._tiles):
+            if tile:
+                tile.path_next = None
+
+        # TODO: Start a 0,0 for now, but eventually will have to work out where
+        # the base is and start there.
+        start = self._lookup_tile(Vector(0, 0))
+        if not start:
+            return
+
+        frontier = deque([start])
+        visited = set([start])
+        while len(frontier) > 0:
+            tile = frontier.popleft()
+
+            for nxt in [t for t in self._tile_neighbours(tile)
+                        if t.empty and t not in visited]:
+                frontier.append(nxt)
+                visited.add(nxt)
+                nxt.path_next = tile
 
     def _update_target(self, c):
         """Check whether we have a target, and find a new one if not."""

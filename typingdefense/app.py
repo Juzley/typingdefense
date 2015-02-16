@@ -65,6 +65,10 @@ class App(object):
         self._game.draw()
         sdl2.SDL_GL_SwapWindow(self._window.window)
 
+    def _update(self):
+        """Perform any updates needed in this frame."""
+        self._game.update()
+
     def run(self):
         """Run the App."""
         self._window.show()
@@ -84,4 +88,5 @@ class App(object):
                 elif event.type == sdl2.SDL_KEYDOWN:
                     self._game.on_keydown(event.key.keysym.sym)
 
+            self._update()
             self._draw()
