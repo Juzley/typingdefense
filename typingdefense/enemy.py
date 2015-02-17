@@ -4,7 +4,7 @@ from .vector import Vector
 
 
 class Enemy(object):
-    SPEED = 0.2
+    SPEED = 1
 
     def __init__(self, app, cam, timer, tile):
         self.origin = Vector(tile.x, tile.y)
@@ -51,9 +51,25 @@ class Enemy(object):
             self._move_dir = Vector(0, 0)
 
 class Wave(object):
-    def __init__(self, level):
+    def __init__(self, app, level, tile):
+        self._app = app
         self._level = level
+        self._tile = tile
         self._start_time = 1
+        self._spawn_pause = 1
+        self._last_spawn = 0
+        self._spawn_count = 0
+        self._spawn_target = 10
 
     def update(self, timer):
-        pass
+        if (timer.time >= self._start_time and
+                timer.time - self._last_spawn > self._spawn_pause and
+                not self.finished):
+            self._level.add_enemy(Enemy(self._app, self._level.cam, timer,
+                                        self._tile))
+            self._last_spawn = timer.time
+            self._spawn_count += 1
+
+    @property
+    def finished(self):
+        return self._spawn_count == self._spawn_target

@@ -9,7 +9,7 @@ from enum import Enum, unique
 from OpenGL import GL
 import typingdefense.glutils as glutils
 from .vector import Vector
-from .enemy import Enemy
+from .enemy import Wave
 from .util import Timer
 from .hud import Hud
 
@@ -238,8 +238,8 @@ class Level(object):
 
     # TODO: cam should be part of level probably
     def __init__(self, app, game):
+        self.cam = game.cam
         self._app = app
-        self._cam = game.cam
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
 
@@ -257,6 +257,15 @@ class Level(object):
               game.cam.trans_matrix_as_array()],
              ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
 
+        # Level state
+        self.timer = Timer()
+        self.gold = 0
+        self.state = Level.State.build
+        self._target = None
+        self._enemies = []
+        self._waves = []
+        self._editing = False
+
         # Map/graphics etc.
         self._min_coords = None
         self._max_coords = None
@@ -264,17 +273,6 @@ class Level(object):
         self._base = None
         self.load(app)
         self._build_paths()
-
-        # Level state
-        self.timer = Timer()
-        self.gold = 0
-        self.state = Level.State.build
-        self._target = None
-        self._enemies = [Enemy(app,
-                               game.cam,
-                               self.timer,
-                               self._lookup_tile(Vector(5, -2)))]
-        self._editing = False
 
         self._hud = Hud(app, self)
 
@@ -293,13 +291,15 @@ class Level(object):
                     coords = Vector(tile_info['q'], tile_info['r'])
                     idx = self._tile_coords_to_array_index(coords)
                     self._tiles[idx.y, idx.x] = Tile(app,
-                                                     self._cam,
+                                                     self.cam,
                                                      coords,
                                                      tile_info['height'])
         except FileNotFoundError:
             pass
 
-        self._base = Base(app, self._cam, Vector(0, 0), Tile.HEIGHT)
+        self._base = Base(app, self.cam, Vector(0, 0), Tile.HEIGHT)
+        self._waves.append(Wave(self._app, self,
+                                self._lookup_tile(Vector(5, -2))))
 
     def _save(self):
         """Save the edited level to file."""
@@ -347,12 +347,16 @@ class Level(object):
         """Advance the game state."""
         self.timer.update()
 
+        # Update enemies
         for enemy in self._enemies:
             enemy.update(self.timer)
-
         unlink_enemies = [e for e in self._enemies if e.unlink()]
         for enemy in unlink_enemies:
             self._enemies.remove(enemy)
+
+        # Spawn new enemies
+        for wave in self._waves:
+            wave.update(self.timer)
 
     def on_click(self, x, y):
         """Handle a mouse click."""
@@ -368,7 +372,7 @@ class Level(object):
                     if self._tile_coords_valid(tile_coords):
                         index = self._tile_coords_to_array_index(tile_coords)
                         self._tiles[index.y, index.x] = Tile(self._app,
-                                                             self._cam,
+                                                             self.cam,
                                                              tile_coords, 0)
             else:
                 tile = self._screen_coords_to_tile(Vector(x, y))
@@ -394,6 +398,10 @@ class Level(object):
             # phrase directly, to allow for stuff doing things on miss etc.
             target = self._target()
             target.on_text(c)
+
+    def add_enemy(self, enemy):
+        """Add an enemy to the level."""
+        self._enemies.append(enemy)
 
     def _tile_coords_to_array_index(self, coords):
         """Work out the array slot for a given set of axial tile coords."""
@@ -427,7 +435,7 @@ class Level(object):
         coordinates (in contrast to _screen_coords_to_tile). This does not
         take into account the height of tiles - it unprojects the click to
         world-space with a Z-value of 0."""
-        world_coords = self._cam.unproject(coords, 0)
+        world_coords = self.cam.unproject(coords, 0)
         return Tile.world_to_tile_coords(world_coords)
 
     def _tile_coords_valid(self, tc):
