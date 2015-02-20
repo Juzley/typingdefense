@@ -1,12 +1,14 @@
 """Typing Defense - Game Module"""
+import sdl2
 from typingdefense.camera import Camera
 from typingdefense.level import Level
-from typingdefense.hud import Hud
+from typingdefense.editor import Editor
 
 
 class Game(object):
     def __init__(self, app):
         # TODO: Move cam to level
+        self._app = app
         self.cam = Camera(
             origin=[0, -10, 40], target=[0, 0, 0], up=[0, 1, 0], fov=45,
             screen_width=app.window_width, screen_height=app.window_height,
@@ -23,6 +25,9 @@ class Game(object):
         self._level.on_click(x, y)
 
     def on_keydown(self, key):
+        if key == sdl2.SDLK_F12:
+            self._level = Editor(self._app, self._level)
+
         self._level.on_keydown(key)
 
     def on_text(self, c):

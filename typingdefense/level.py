@@ -2,15 +2,15 @@
 import math
 import numpy
 import weakref
-import sdl2
 import json
+import copy
 from collections import deque
 from enum import Enum, unique
 from OpenGL import GL
 import typingdefense.glutils as glutils
 from .vector import Vector
 from .enemy import Wave
-from .util import Timer
+from .util import Timer, Colour
 from .hud import Hud
 
 
@@ -79,6 +79,13 @@ class Tile(object):
         self._colour_uniform = 0
         self._setup_shader(app.resources)
 
+        self._outline_colour = Colour.from_blue()
+        self._face_colour = copy.copy(self._outline_colour)
+        self._face_colour.s = self._face_colour.s / 2
+
+        # Dictionary of waves, keyed by the level phase in which they appear.
+        self.waves = {}
+
     def _setup_vert_buffers(self):
         """Populate the vertex buffers for the tile."""
         z = 0
@@ -146,19 +153,30 @@ class Tile(object):
         # TODO
         return True
 
-    def draw(self):
+    def draw(self, outline=True, faces=True):
         """Draw the tile."""
         self._shader.use()
         GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
                               self._cam.trans_matrix_as_array())
-        GL.glUniform4f(self._colour_uniform, 1.0, 1.0, 1.0, 1.0)
 
         with self._vao.bind(), glutils.linewidth(3):
-            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
-            GL.glUniform4f(self._colour_uniform, 0.0, 1.0, 0.0, 1.0)
-            GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
-            GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
-            GL.glDrawArrays(GL.GL_LINES, 12, 12)
+            if faces:
+                GL.glUniform4f(self._colour_uniform,
+                               self._face_colour.r,
+                               self._face_colour.g,
+                               self._face_colour.b,
+                               self._face_colour.a)
+                GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
+
+            if outline:
+                GL.glUniform4f(self._colour_uniform,
+                               self._outline_colour.r,
+                               self._outline_colour.g,
+                               self._outline_colour.b,
+                               self._outline_colour.a)
+                GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
+                GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
+                GL.glDrawArrays(GL.GL_LINES, 12, 12)
 
         GL.glUseProgram(0)
 
@@ -259,18 +277,18 @@ class Level(object):
 
         # Level state
         self.timer = Timer()
-        self.gold = 0
+        self.money = 0
         self.state = Level.State.build
         self._target = None
         self._enemies = []
-        self._waves = []
-        self._editing = False
+        self._phase = 0
+        self.waves = []
 
         # Map/graphics etc.
         self._min_coords = None
         self._max_coords = None
-        self._tiles = None
-        self._base = None
+        self.tiles = None
+        self.base = None
         self.load(app)
         self._build_paths()
 
@@ -283,57 +301,69 @@ class Level(object):
 
         width = self._max_coords.x - self._min_coords.x + 1
         height = self._max_coords.y - self._min_coords.y + 1
-        self._tiles = numpy.empty([height, width], dtype=object)
+        self.tiles = numpy.empty([height, width], dtype=object)
         try:
             with open('resources/levels/test_level.tdl', 'r') as f:
                 lvl_info = json.load(f)
                 for tile_info in lvl_info['tiles']:
                     coords = Vector(tile_info['q'], tile_info['r'])
-                    idx = self._tile_coords_to_array_index(coords)
-                    self._tiles[idx.y, idx.x] = Tile(app,
-                                                     self.cam,
-                                                     coords,
-                                                     tile_info['height'])
+                    idx = self.tile_coords_to_array_index(coords)
+                    self.tiles[idx.y, idx.x] = Tile(app,
+                                                    self.cam,
+                                                    coords,
+                                                    tile_info['height'])
         except FileNotFoundError:
             pass
 
-        self._base = Base(app, self.cam, Vector(0, 0), Tile.HEIGHT)
-        self._waves.append(Wave(self._app, self,
-                                self._lookup_tile(Vector(5, -2))))
+        self.base = Base(app, self.cam, Vector(0, 0), Tile.HEIGHT)
+        self.waves.append([Wave(self._app, self,
+                                self.lookup_tile(Vector(5, -2)))])
 
-    def _save(self):
+    def save(self):
         """Save the edited level to file."""
         level = {}
         level['name'] = 'Test Level'
 
         tiles = []
-        for _, tile in numpy.ndenumerate(self._tiles):
+        for _, tile in numpy.ndenumerate(self.tiles):
             if tile:
                 tiles.append({'q': tile.q, 'r': tile.r, 'height': tile.height})
         level['tiles'] = tiles
 
+        phases = []
+        for phase in self.waves:
+            waves = []
+            for waves in phase:
+                # TODO save waves
+                pass
+
+        level['waves'] = phases
+
         with open('resources/levels/test_level.tdl', 'w') as f:
             json.dump(level, f)
+
+    def picking_draw(self):
+        """Draw the tiles to the picking buffer."""
+        with self._picking_texture.enable():
+            with self._picking_shader.use():
+                GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+                self._picking_shader.set_uniform('transMatrix')
+                for _, tile in numpy.ndenumerate(self.tiles):
+                    if tile:
+                        tile.picking_draw(self._picking_shader)
 
     def draw(self):
         """Draw the level."""
         self._hud.draw()
 
         # Do the picking draw first.
-        with self._picking_texture.enable():
-            with self._picking_shader.use():
-                GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-                self._picking_shader.set_uniform('transMatrix')
-                for _, tile in numpy.ndenumerate(self._tiles):
-                    if tile:
-                        tile.picking_draw(self._picking_shader)
+        self.picking_draw()
 
         # Now actually draw the tiles
-        for _, tile in numpy.ndenumerate(self._tiles):
+        for _, tile in numpy.ndenumerate(self.tiles):
             if tile:
                 tile.draw()
-        self._base.draw()
-        GL.glUseProgram(0)
+        self.base.draw()
 
         for enemy in self._enemies:
             enemy.draw()
@@ -342,53 +372,48 @@ class Level(object):
         """Move from build into play state."""
         if self.state == Level.State.build:
             self.state = Level.State.defend
+            self._phase += 1
 
     def update(self):
         """Advance the game state."""
         self.timer.update()
 
-        # Update enemies
-        for enemy in self._enemies:
-            enemy.update(self.timer)
-        unlink_enemies = [e for e in self._enemies if e.unlink()]
-        for enemy in unlink_enemies:
-            self._enemies.remove(enemy)
+        if self.state == Level.State.defend:
+            # Update enemies
+            for enemy in self._enemies:
+                enemy.update(self.timer)
+            unlink_enemies = [e for e in self._enemies if e.unlink()]
+            for enemy in unlink_enemies:
+                self._enemies.remove(enemy)
 
-        # Spawn new enemies
-        for wave in self._waves:
-            wave.update(self.timer)
+            # Spawn new enemies
+            active_waves = False
+            for wave in self.waves[self._phase - 1]:
+                wave.update(self.timer)
+
+                if not wave.finished:
+                    active_waves = True
+
+            # Check if the current phase is finished.
+            if not active_waves and len(self._enemies) == 0:
+                self.state = Level.State.build
+                # TODO: Check if we've finished the last phase.
 
     def on_click(self, x, y):
         """Handle a mouse click."""
         hit_hud = self._hud.on_click(x, y)
 
         if not hit_hud:
-            if self._editing:
-                # Work out if we hit an existing tile
-                tile = self._screen_coords_to_tile(Vector(x, y))
-                if not tile:
-                    tile_coords = self._screen_coords_to_tile_coords(
-                        Vector(x, y))
-                    if self._tile_coords_valid(tile_coords):
-                        index = self._tile_coords_to_array_index(tile_coords)
-                        self._tiles[index.y, index.x] = Tile(self._app,
-                                                             self.cam,
-                                                             tile_coords, 0)
-            else:
-                tile = self._screen_coords_to_tile(Vector(x, y))
-                if tile:
-                    print("Tile: {},{}".format(tile.q, tile.r))
-                    if tile.path_next:
-                        print("    Next: {},{}".format(tile.path_next.q,
-                                                       tile.path_next.r))
+            tile = self.screen_coords_to_tile(Vector(x, y))
+            if tile:
+                print("Tile: {},{}".format(tile.q, tile.r))
+                if tile.path_next:
+                    print("    Next: {},{}".format(tile.path_next.q,
+                                                    tile.path_next.r))
 
     def on_keydown(self, key):
         """Handle keydown events."""
-        if key == sdl2.SDLK_F12:
-            self._editing = not self._editing
-        elif key == sdl2.SDLK_s:
-            if self._editing:
-                self._save()
+        pass
 
     def on_text(self, c):
         """Handle text input."""
@@ -403,19 +428,19 @@ class Level(object):
         """Add an enemy to the level."""
         self._enemies.append(enemy)
 
-    def _tile_coords_to_array_index(self, coords):
+    def tile_coords_to_array_index(self, coords):
         """Work out the array slot for a given set of axial tile coords."""
         return Vector(coords.q - self._min_coords.q,
                       coords.r - self._min_coords.r)
 
-    def _lookup_tile(self, coords):
+    def lookup_tile(self, coords):
         """Look up a tile from its (q, r) coordinates."""
-        if not self._tile_coords_valid:
+        if not self.tile_coords_valid:
             return None
-        index = self._tile_coords_to_array_index(coords)
-        return self._tiles[index.y, index.x]
+        index = self.tile_coords_to_array_index(coords)
+        return self.tiles[index.y, index.x]
 
-    def _screen_coords_to_tile(self, coords):
+    def screen_coords_to_tile(self, coords):
         """Work out which tile a given point in screen coordinates is in."""
         pixel_info = self._picking_texture.read(coords.x, coords.y)
 
@@ -424,21 +449,21 @@ class Level(object):
             return None
 
         # The q and r coordinates are stored in the r and g values, respectively
-        return self._lookup_tile(Vector(pixel_info[0], pixel_info[1]))
+        return self.lookup_tile(Vector(pixel_info[0], pixel_info[1]))
 
-    def _screen_coords_to_tile_coords(self, coords):
+    def screen_coords_to_tile_coords(self, coords):
         """Convert screen coordinates to tile coordinates.
 
         Returns a vector containing the coordinates on the q and r axes.
 
         This will return a value even if there is no tile currently at the
-        coordinates (in contrast to _screen_coords_to_tile). This does not
+        coordinates (in contrast to screen_coords_to_tile). This does not
         take into account the height of tiles - it unprojects the click to
         world-space with a Z-value of 0."""
         world_coords = self.cam.unproject(coords, 0)
         return Tile.world_to_tile_coords(world_coords)
 
-    def _tile_coords_valid(self, tc):
+    def tile_coords_valid(self, tc):
         """Determine whether a given set of tile coordinates is within range."""
         return (tc.q >= self._min_coords.q and tc.q <= self._max_coords.q and
                 tc.r >= self._min_coords.r and tc.r <= self._max_coords.r)
@@ -453,7 +478,7 @@ class Level(object):
         neighbours = []
         for d in dirs:
             neighbour_coords = Vector(tile.q + d[0], tile.r + d[1])
-            neighbour = self._lookup_tile(neighbour_coords)
+            neighbour = self.lookup_tile(neighbour_coords)
             if neighbour:
                 neighbours.append(neighbour)
         return neighbours
@@ -461,13 +486,13 @@ class Level(object):
     def _build_paths(self):
         """Calculate paths from each tile to the base."""
         # Clear any previous path info
-        for _, tile in numpy.ndenumerate(self._tiles):
+        for _, tile in numpy.ndenumerate(self.tiles):
             if tile:
                 tile.path_next = None
 
         # TODO: Start a 0,0 for now, but eventually will have to work out where
         # the base is and start there.
-        start = self._lookup_tile(Vector(0, 0))
+        start = self.lookup_tile(Vector(0, 0))
         if not start:
             return
 

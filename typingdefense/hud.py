@@ -53,7 +53,7 @@ class Hud(object):
     def __init__(self, app, level):
         font = app.resources.load_font("hudfont.fnt")
         self._level = level
-        self._test_text = Text2D(app, font, "TEST!", 400, 300, 32,
+        self._test_text = Text2D(app, font, "HUD", 400, 10, 32,
                                  Text.Align.center)
         self._play_button = Button(app, 10, 10)
 
