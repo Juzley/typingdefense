@@ -1,4 +1,6 @@
 """Various OpenGL utility classes."""
+import math
+import numpy
 from OpenGL import GL
 from contextlib import contextmanager
 
@@ -138,3 +140,40 @@ class PickingTexture(object):
             GL.glReadBuffer(GL.GL_NONE)
 
         return pixel[0][0]
+
+class Hex(object):
+    def __init__(self, coords, size, depth, stacks=1):
+        # The top layer of the tile is drawn with a line loop.
+        # The vertical sections are drawn with lines.
+        z = 0
+        top_verts, vert_verts = ([], [])
+        for i in range(6):
+            px = coords.x + size * math.sin((2 * math.pi / 6) * (5 - i))
+            py = coords.y + size * math.cos((2 * math.pi / 6) * (5 - i))
+            top_verts.extend([px, py, z + depth])
+
+            px = coords.x + size * math.sin((2 * math.pi / 6) * i)
+            py = coords.y + size * math.cos((2 * math.pi / 6) * i)
+            vert_verts.extend([px, py, z, px, py, z + depth])
+
+        # Put all the points into the same vertex buffer: top then mid.
+        verts = numpy.array(top_verts + vert_verts, numpy.float32)
+
+        self._vao = VertexArray()
+        self._vbo = VertexBuffer()
+        with self._vao.bind():
+            self._vbo.bind()
+            GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
+                            GL.GL_STATIC_DRAW)
+            GL.glEnableVertexAttribArray(0)
+            GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+
+    def draw_faces(self):
+        with self._vao.bind():
+            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
+            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 6, 12)
+
+    def draw_outline(self):
+        with self._vao.bind():
+            GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
+            GL.glDrawArrays(GL.GL_LINES, 6, 12)

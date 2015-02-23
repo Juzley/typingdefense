@@ -70,14 +70,11 @@ class Tile(object):
         self.height = height
         self.path_next = None
 
-        self._vao = None
-        self._vbo = None
-        self._setup_vert_buffers()
-
         self._shader = None
         self._transmatrix_uniform = 0
         self._colour_uniform = 0
         self._setup_shader(app.resources)
+        self._hex = glutils.Hex(Vector(self.x, self.y), Tile.SIZE, Tile.DEPTH)
 
         self._outline_colour = Colour.from_cyan()
         self._outline_colour.s = 0.66
@@ -86,31 +83,6 @@ class Tile(object):
 
         # Dictionary of waves, keyed by the level phase in which they appear.
         self.waves = {}
-
-    def _setup_vert_buffers(self):
-        """Populate the vertex buffers for the tile."""
-        z = 0
-
-        # The top layer of the tile is drawn with a line loop.
-        # The vertical sections are drawn with lines.
-        top_verts, vert_verts = ([], [])
-        for i in range(6):
-            px = self.x + Tile.SIZE * math.sin((2 * math.pi / 6) * (5 - i))
-            py = self.y + Tile.SIZE * math.cos((2 * math.pi / 6) * (5 - i))
-            top_verts.extend([px, py, z + Tile.DEPTH])
-            vert_verts.extend([px, py, z, px, py, z + Tile.DEPTH])
-
-        # Put all the points into the same vertex buffer: top then mid.
-        verts = numpy.array(top_verts + vert_verts, numpy.float32)
-
-        self._vao = glutils.VertexArray()
-        self._vbo = glutils.VertexBuffer()
-        with self._vao.bind():
-            self._vbo.bind()
-            GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
-                            GL.GL_STATIC_DRAW)
-            GL.glEnableVertexAttribArray(0)
-            GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
     def _setup_shader(self, resources):
         """Load the shader program for the tile."""
@@ -165,24 +137,21 @@ class Tile(object):
         GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
                               self._cam.trans_matrix_as_array())
 
-        with self._vao.bind(), glutils.linewidth(3):
-            if faces:
-                GL.glUniform4f(self._colour_uniform,
-                               self._face_colour.r,
-                               self._face_colour.g,
-                               self._face_colour.b,
-                               self._face_colour.a)
-                GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
-
-            if outline:
-                GL.glUniform4f(self._colour_uniform,
-                               self._outline_colour.r,
-                               self._outline_colour.g,
-                               self._outline_colour.b,
-                               self._outline_colour.a)
-                GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
-                # GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
-                GL.glDrawArrays(GL.GL_LINES, 6, 12)
+        if faces:
+            GL.glUniform4f(self._colour_uniform,
+                            self._face_colour.r,
+                            self._face_colour.g,
+                            self._face_colour.b,
+                            self._face_colour.a)
+            self._hex.draw_faces()
+        if outline:
+            GL.glUniform4f(self._colour_uniform,
+                            self._outline_colour.r,
+                            self._outline_colour.g,
+                            self._outline_colour.b,
+                            self._outline_colour.a)
+            with glutils.linewidth(3):
+                self._hex.draw_outline()
 
         GL.glUseProgram(0)
 
@@ -193,11 +162,7 @@ class Tile(object):
         """
         picking_shader.set_uniform('colourIn',
                                    [self.coords.q, self.coords.r, 0, 0])
-        with self._vao.bind(), glutils.linewidth(3):
-            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
-            GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
-            GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
-            GL.glDrawArrays(GL.GL_LINES, 12, 12)
+        self._hex.draw_faces()
 
 
 class Base(object):

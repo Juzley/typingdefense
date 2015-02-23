@@ -5,27 +5,29 @@ from .vector import Vector
 
 class Enemy(object):
     SPEED = 1
+    DAMAGE = 20
 
-    def __init__(self, app, cam, timer, tile):
+    def __init__(self, app, level, tile):
         self.origin = Vector(tile.x, tile.y)
-        self.phrase = Phrase(app, cam, "PHRASE")
+        self.phrase = Phrase(app, level.cam, "PHRASE")
 
+        self._level = level
         self._current_tile = tile
         self._next_tile = tile.path_next
 
         self._move_start = 0
         self._move_end = 0
         self._move_dir = None
-        self._setup_move(timer)
+        self._setup_move(level.timer)
+
+        self.unlink = False
 
     def draw(self):
         self.phrase.draw(Vector(self.origin.x, self.origin.y, 0))
 
     def on_text(self, c):
         self.phrase.on_type(c)
-
-    def unlink(self):
-        return self.phrase.complete
+        self.unlink = self.phrase.complete
 
     def update(self, timer):
         self.origin += self._move_dir * timer.frametime * Enemy.SPEED
@@ -35,6 +37,10 @@ class Enemy(object):
                 self._current_tile = self._next_tile
                 self._next_tile = self._next_tile.path_next
                 self._setup_move(timer)
+
+            if self._current_tile == level.base.tile:
+                level.base.damage(Enemy.DAMAGE)
+                self.unlink = True
 
     def _setup_move(self, timer):
         if self._next_tile:
