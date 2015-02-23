@@ -139,6 +139,11 @@ class Tile(object):
         """Calculate the y value of the world location of the tile center."""
         return Tile.SIZE * (3 / 2) * self.r
 
+    @property
+    def top(self):
+        """Calculate the world Z coord of the top of the tile."""
+        return self.height * Tile.HEIGHT
+
     @staticmethod
     def world_to_tile_coords(world_coords):
         """Convert world (x, y) coordinates to tile (q, r) coordinates.
@@ -197,8 +202,12 @@ class Tile(object):
 
 class Base(object):
     """Class representing the player's base."""
-    def __init__(self, app, cam, origin, z):
+    START_HEALTH = 100
+
+    def __init__(self, app, cam, tile, origin, z):
         self._cam = cam
+        self.health = Base.START_HEALTH
+        self.tile = tile
 
         top_verts, mid_verts, bottom_verts = ([], [], [])
         for i in range(6):
@@ -245,6 +254,10 @@ class Base(object):
 
         GL.glUseProgram(0)
 
+    def damage(self, dmg):
+        self.health -= dmg
+        # TODO: Death
+
 
 class Level(object):
     """Class representing a game level."""
@@ -262,8 +275,6 @@ class Level(object):
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
 
-        # TODO: Consider whether this should be in Tile or not.
-        # Maybe move tile drawing etc to level class?
         self._shader = app.resources.load_shader_program("level.vs",
                                                          "level.fs")
         self._transmatrix_uniform = self._shader.uniform('transMatrix')
@@ -306,6 +317,7 @@ class Level(object):
         try:
             with open('resources/levels/test_level.tdl', 'r') as f:
                 lvl_info = json.load(f)
+                # Load tiles 
                 for tile_info in lvl_info['tiles']:
                     coords = Vector(tile_info['q'], tile_info['r'])
                     idx = self.tile_coords_to_array_index(coords)
@@ -313,12 +325,24 @@ class Level(object):
                                                     self.cam,
                                                     coords,
                                                     tile_info['height'])
+
+                phase_idx = 0
+                for phase_info in lvl_info['waves']:
+                    waves = []
+                    for wave_info in phase_info:
+                        coords = Vector(wave_info['q'], wave_info['r'])
+                        tile = self.lookup_tile(coords)
+                        wave = Wave(self._app, self, tile)
+                        tile.waves[phase_idx] = wave
+                        waves.append(Wave(self._app, self, tile))
+                    self.waves.append(waves)
+                    phase_idx += 1
+
         except FileNotFoundError:
             pass
 
-        self.base = Base(app, self.cam, Vector(0, 0), Tile.HEIGHT)
-        self.waves.append([Wave(self._app, self,
-                                self.lookup_tile(Vector(5, -2)))])
+        tile = self.lookup_tile(Vector(0, 0))
+        self.base = Base(app, self.cam, tile, Vector(0, 0), Tile.HEIGHT)
 
     def save(self):
         """Save the edited level to file."""
@@ -334,9 +358,9 @@ class Level(object):
         phases = []
         for phase in self.waves:
             waves = []
-            for waves in phase:
-                # TODO save waves
-                pass
+            for wave in phase:
+                waves.append({'q': wave.tile.q, 'r': wave.tile.r})
+            phases.append(waves)
 
         level['waves'] = phases
 

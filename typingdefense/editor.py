@@ -13,6 +13,7 @@ class Editor(object):
         """Enumeration of different editor modes."""
         tile = 1
         wave = 2
+        base = 3
 
     def __init__(self, app, level):
         self._state = Editor.State.tile
@@ -25,7 +26,8 @@ class Editor(object):
         for _, tile in numpy.ndenumerate(self._level.tiles):
             if tile:
                 # TODO: Hardcoded phase here
-                draw_faces = (0 in tile.waves or self._state != Editor.State.wave)
+                draw_faces = (0 in tile.waves or
+                              self._state != Editor.State.wave)
                 tile.draw(faces=draw_faces)
 
         self._level.base.draw()
@@ -41,6 +43,8 @@ class Editor(object):
             self._state = Editor.State.tile
         elif key == sdl2.SDLK_w:
             self._state = Editor.State.wave
+        elif key == sdl2.SDLK_b:
+            self._state = Editor.State.base
 
     def on_text(self, c):
         """Handle text input."""
@@ -70,3 +74,7 @@ class Editor(object):
                 self._level.waves += [[]] * (len(self._level.waves) - (0 + 1))
                 self._level.waves[0].append(wave)
                 tile.waves[0] = wave
+        elif self._state == Editor.State.base:
+            if tile:
+                # TODO: Move the base
+                pass

@@ -52,9 +52,9 @@ class Enemy(object):
 
 class Wave(object):
     def __init__(self, app, level, tile):
+        self.tile = tile
         self._app = app
         self._level = level
-        self._tile = tile
         self._start_time = 1
         self._spawn_pause = 1
         self._last_spawn = 0
