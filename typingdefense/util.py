@@ -46,7 +46,8 @@ class Colour(object):
 
     @h.setter
     def h(self, h):
-        self.r, self.b, self.g = Colour._hsv_to_rgb(h, self.s, self.v)
+        _, s, v = Colour._rgb_to_hsv(self.r, self.g, self.b)
+        self.r, self.g, self.b = Colour._hsv_to_rgb(h, s, v)
 
     @property
     def s(self):
@@ -55,7 +56,8 @@ class Colour(object):
 
     @s.setter
     def s(self, s):
-        self.r, self.b, self.g = Colour._hsv_to_rgb(self.h, s, self.v)
+        h, _, v = Colour._rgb_to_hsv(self.r, self.g, self.b)
+        self.r, self.g, self.b = Colour._hsv_to_rgb(h, s, v)
 
     @property
     def v(self):
@@ -64,7 +66,8 @@ class Colour(object):
 
     @v.setter
     def v(self, v):
-        self.r, self.b, self.g = Colour._hsv_to_rgb(self.h, self.s, v)
+        h, s, _ = Colour._rgb_to_hsv(self.r, self.g, self.b)
+        self.r, self.g, self.b = Colour._hsv_to_rgb(h, s, v)
 
     @staticmethod
     def _rgb_to_hsv(r, g, b):
@@ -76,7 +79,7 @@ class Colour(object):
             # Black
             return (0, 0, 0)
 
-        s = delta/ max_colour
+        s = delta / max_colour
         v = max_colour
 
         if r == max_colour:
@@ -101,7 +104,7 @@ class Colour(object):
             # Grey
             return (v, v, v)
 
-        i = math.floor(h)
+        i = math.floor(h / 60)
         f = (h / 60) - i
         p = v * (1 - s)
         q = v * (1 - s * f)
@@ -135,12 +138,24 @@ class Colour(object):
 
     @classmethod
     def from_blue(cls, a=1):
-        return cls(0, 1, 0, a)
+        return cls(0, 0, 1, a)
 
     @classmethod
     def from_green(cls, a=1):
-        return cls(0, 0, 1, a)
+        return cls(0, 1, 0, a)
 
     @classmethod
     def from_black(cls, a=1):
         return cls(0, 0, 0, a)
+
+    @classmethod
+    def from_yellow(cls, a=1):
+        return cls(1, 1, 0, a)
+
+    @classmethod
+    def from_cyan(cls, a=1):
+        return cls(0, 1, 1, a)
+
+    @classmethod
+    def from_magenta(cls, a=1):
+        return cls(1, 0, 1, a)

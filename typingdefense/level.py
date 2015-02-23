@@ -52,7 +52,7 @@ def _cube_to_hex(c):
 class Tile(object):
     """Class representing a single tile in a level."""
     SIZE = 1
-    DEPTH = 1
+    DEPTH = 2
     HEIGHT = SIZE * 2
     WIDTH = SIZE * (math.sqrt(3)/2) * HEIGHT
     VERT_SPACING = HEIGHT * 0.75
@@ -79,9 +79,10 @@ class Tile(object):
         self._colour_uniform = 0
         self._setup_shader(app.resources)
 
-        self._outline_colour = Colour.from_blue()
+        self._outline_colour = Colour.from_cyan()
+        self._outline_colour.s = 0.66
         self._face_colour = copy.copy(self._outline_colour)
-        self._face_colour.s = self._face_colour.s / 2
+        self._face_colour.s = 0.33
 
         # Dictionary of waves, keyed by the level phase in which they appear.
         self.waves = {}
@@ -94,8 +95,8 @@ class Tile(object):
         # The vertical sections are drawn with lines.
         top_verts, vert_verts = ([], [])
         for i in range(6):
-            px = self.x + Tile.SIZE * math.sin((2 * math.pi / 6) * i)
-            py = self.y + Tile.SIZE * math.cos((2 * math.pi / 6) * i)
+            px = self.x + Tile.SIZE * math.sin((2 * math.pi / 6) * (5 - i))
+            py = self.y + Tile.SIZE * math.cos((2 * math.pi / 6) * (5 - i))
             top_verts.extend([px, py, z + Tile.DEPTH])
             vert_verts.extend([px, py, z, px, py, z + Tile.DEPTH])
 
@@ -175,8 +176,8 @@ class Tile(object):
                                self._outline_colour.b,
                                self._outline_colour.a)
                 GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
-                GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
-                GL.glDrawArrays(GL.GL_LINES, 12, 12)
+                # GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
+                GL.glDrawArrays(GL.GL_LINES, 6, 12)
 
         GL.glUseProgram(0)
 
@@ -406,10 +407,7 @@ class Level(object):
         if not hit_hud:
             tile = self.screen_coords_to_tile(Vector(x, y))
             if tile:
-                print("Tile: {},{}".format(tile.q, tile.r))
-                if tile.path_next:
-                    print("    Next: {},{}".format(tile.path_next.q,
-                                                    tile.path_next.r))
+                pass
 
     def on_keydown(self, key):
         """Handle keydown events."""

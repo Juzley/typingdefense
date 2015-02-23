@@ -52,9 +52,8 @@ class App(object):
         GL.glEnable(GL.GL_BLEND)
         GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
 
-        # TODO: Sort this
-        # GL.glEnable(GL.GL_CULL_FACE)
-        # GL.glCullFace(GL.GL_BACK)
+        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glCullFace(GL.GL_BACK)
 
     def _draw(self):
         """Draw the next frame."""

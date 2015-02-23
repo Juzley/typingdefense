@@ -16,6 +16,9 @@ class VertexArray(object):
     def __init__(self):
         self._id = GL.glGenVertexArrays(1)
 
+    def __del__(self):
+        GL.glDeleteVertexArray(self._id)
+
     @contextmanager
     def bind(self):
         GL.glBindVertexArray(self._id)
@@ -28,6 +31,9 @@ class VertexArray(object):
 class VertexBuffer(object):
     def __init__(self):
         self._id = GL.glGenBuffers(1)
+
+    def __del__(self):
+        GL.glDeleteBuffers(self._id)
 
     def bind(self):
         """Bind the vertex buffer.
