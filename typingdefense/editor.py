@@ -79,13 +79,20 @@ class Editor(object):
 
         elif self._state == Editor.State.wave:
             # TODO: Hardcoded phase
-            if tile and 0 not in tile.waves:
-                # Extend the wave list if it is not long enough.
+            phase = 0
+            if add and tile and phase not in tile.waves:
                 wave = Wave(self._app, self._level, tile)
-                # TODO: Hardcoded phase
-                self._level.waves += [[]] * (len(self._level.waves) - (0 + 1))
-                self._level.waves[0].append(wave)
-                tile.waves[0] = wave
+
+                # Extend the wave list if it is not long enough.
+                self._level.waves += [[]] * (phase + 1 - len(self._level.waves))
+                self._level.waves[phase].append(wave)
+                tile.waves[phase] = wave
+
+            if not add and tile and phase in tile.waves:
+                wave = tile.waves[phase]
+
+                self._level.waves[phase].remove(wave)
+                del(tile.waves[phase])
         elif self._state == Editor.State.base:
             if tile:
                 # TODO: Move the base

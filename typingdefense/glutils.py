@@ -181,14 +181,14 @@ class Hex(object):
     def draw_faces(self):
         with self._vao.bind():
             for s in range(self._stacks):
-                GL.glDrawArrays(GL.GL_TRIANGLE_FAN, s * 12, 6)
-                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 6 + s * 12, 12)
+                GL.glDrawArrays(GL.GL_TRIANGLE_FAN, s * 18, 6)
+                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 6 + s * 18, 12)
 
     def draw_outline(self):
         with self._vao.bind():
             for s in range(self._stacks):
-                GL.glDrawArrays(GL.GL_LINE_LOOP, s * 12, 6)
-                GL.glDrawArrays(GL.GL_LINES, 6 + s * 12, 12)
+                GL.glDrawArrays(GL.GL_LINE_LOOP, s * 18, 6)
+                GL.glDrawArrays(GL.GL_LINES, 6 + s * 18, 12)
 
     def draw(self, faces=True, outline=True):
         if faces:
