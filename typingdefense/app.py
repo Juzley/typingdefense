@@ -80,7 +80,8 @@ class App(object):
                     break
                 elif event.type == sdl2.SDL_MOUSEBUTTONDOWN:
                     self._game.on_click(event.button.x,
-                                        self.window_height - event.button.y)
+                                        self.window_height - event.button.y,
+                                        event.button.button)
                 elif event.type == sdl2.SDL_TEXTINPUT:
                     for c in event.text.text:
                         self._game.on_text(chr(c))

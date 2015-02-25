@@ -19,7 +19,9 @@ class VertexArray(object):
         self._id = GL.glGenVertexArrays(1)
 
     def __del__(self):
-        GL.glDeleteVertexArray(self._id)
+        # TODO: Work out how to call this
+        # GL.glDeleteVertexArrays(1, self._id)
+        pass
 
     @contextmanager
     def bind(self):
@@ -35,7 +37,9 @@ class VertexBuffer(object):
         self._id = GL.glGenBuffers(1)
 
     def __del__(self):
-        GL.glDeleteBuffers(self._id)
+        # TODO: Work out how to call this
+        # GL.glDeleteBuffers(1, self._id)
+        pass
 
     def bind(self):
         """Bind the vertex buffer.
@@ -77,11 +81,12 @@ class ShaderInstance(object):
     def set_uniform(self, name, value=None, download=True):
         """Set a uniform, optionally updating its value first.
 
-        The shader must be bound before calling this method."""
-        if value:
+        The shader must be bound before calling this method, if the value is
+        to be downloaded."""
+        if value is not None:
             self._uniforms[name] = (self._uniforms[name][0],
                                     self._uniforms[name][1],
-                                    value) 
+                                    value)
         if download:
             self._dl_uniform(self._uniforms[name])
 
@@ -141,23 +146,28 @@ class PickingTexture(object):
 
         return pixel[0][0]
 
+
 class Hex(object):
     def __init__(self, coords, size, depth, stacks=1):
+        self._stacks = stacks
+
         # The top layer of the tile is drawn with a line loop.
         # The vertical sections are drawn with lines.
-        z = 0
-        top_verts, vert_verts = ([], [])
-        for i in range(6):
-            px = coords.x + size * math.sin((2 * math.pi / 6) * (5 - i))
-            py = coords.y + size * math.cos((2 * math.pi / 6) * (5 - i))
-            top_verts.extend([px, py, z + depth])
+        all_verts = []
+        for s in range(self._stacks):
+            top_verts, vert_verts = ([], [])
+            for i in range(6):
+                z = coords.z + depth * s
+                px = coords.x + size * math.sin((2 * math.pi / 6) * (5 - i))
+                py = coords.y + size * math.cos((2 * math.pi / 6) * (5 - i))
+                top_verts.extend([px, py, z + depth])
 
-            px = coords.x + size * math.sin((2 * math.pi / 6) * i)
-            py = coords.y + size * math.cos((2 * math.pi / 6) * i)
-            vert_verts.extend([px, py, z, px, py, z + depth])
+                px = coords.x + size * math.sin((2 * math.pi / 6) * i)
+                py = coords.y + size * math.cos((2 * math.pi / 6) * i)
+                vert_verts.extend([px, py, z, px, py, z + depth])
+            all_verts.extend(top_verts + vert_verts)
 
-        # Put all the points into the same vertex buffer: top then mid.
-        verts = numpy.array(top_verts + vert_verts, numpy.float32)
+        verts = numpy.array(all_verts, numpy.float32)
 
         self._vao = VertexArray()
         self._vbo = VertexBuffer()
@@ -170,10 +180,18 @@ class Hex(object):
 
     def draw_faces(self):
         with self._vao.bind():
-            GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
-            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 6, 12)
+            for s in range(self._stacks):
+                GL.glDrawArrays(GL.GL_TRIANGLE_FAN, s * 12, 6)
+                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 6 + s * 12, 12)
 
     def draw_outline(self):
         with self._vao.bind():
-            GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
-            GL.glDrawArrays(GL.GL_LINES, 6, 12)
+            for s in range(self._stacks):
+                GL.glDrawArrays(GL.GL_LINE_LOOP, s * 12, 6)
+                GL.glDrawArrays(GL.GL_LINES, 6 + s * 12, 12)
+
+    def draw(self, faces=True, outline=True):
+        if faces:
+            self.draw_faces()
+        if outline:
+            self.draw_outline()

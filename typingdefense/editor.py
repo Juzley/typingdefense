@@ -50,21 +50,33 @@ class Editor(object):
         """Handle text input."""
         pass
 
-    def on_click(self, x, y):
+    def on_click(self, x, y, button):
         """Handle a mouse click."""
+        if button != sdl2.SDL_BUTTON_LEFT and button != sdl2.SDL_BUTTON_RIGHT:
+            return
+
+        add = (button == sdl2.SDL_BUTTON_LEFT)
         tile = self._level.screen_coords_to_tile(Vector(x, y))
 
         if self._state == Editor.State.tile:
             if tile:
-                pass
+                tile_coords = tile.coords
+                height = tile.height + (1 if add else -1)
             else:
                 tile_coords = self._level.screen_coords_to_tile_coords(
-                    Vector(x, y))
-                if self._level.tile_coords_valid(tile_coords):
-                    index = self._level.tile_coords_to_array_index(tile_coords)
+                        Vector(x, y))
+                height = 1 if add else 0
+
+            if self._level.tile_coords_valid(tile_coords):
+                index = self._level.tile_coords_to_array_index(tile_coords)
+                if height > 0:
                     self._level.tiles[index.y, index.x] = Tile(self._app,
                                                                self._level.cam,
-                                                               tile_coords, 0)
+                                                               tile_coords,
+                                                               height)
+                else:
+                    self._level.tiles[index.y, index.x] = None
+
         elif self._state == Editor.State.wave:
             # TODO: Hardcoded phase
             if tile and 0 not in tile.waves:

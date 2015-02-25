@@ -1,6 +1,21 @@
 """Various utility classes and functions."""
 import sdl2
 import math
+import numpy
+
+
+class Transform(object):
+    def __init__(self, translate=None):
+        if translate:
+            self._translate_mat = numpy.matrix([[1, 0, 0, translate.x],
+                                                [0, 1, 0, translate.y],
+                                                [0, 0, 1, translate.z],
+                                                [0, 0, 0, 1]],
+                                               numpy.float32)
+        else:
+            self._translate_mat = numpy.identity(4)
+
+        self.matrix = self._translate_mat
 
 
 class Timer(object):
@@ -38,6 +53,18 @@ class Colour(object):
         self.g = g
         self.b = b
         self.a = a
+
+    def __getitem__(self, key):
+        if key == 0:
+            return self.r
+        elif key == 1:
+            return self.g
+        elif key == 2:
+            return self.b
+        elif key == 3:
+            return self.a
+        else:
+            raise IndexError()
 
     @property
     def h(self):

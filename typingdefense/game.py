@@ -21,8 +21,8 @@ class Game(object):
     def update(self):
         self._level.update()
 
-    def on_click(self, x, y):
-        self._level.on_click(x, y)
+    def on_click(self, x, y, button):
+        self._level.on_click(x, y, button)
 
     def on_keydown(self, key):
         if key == sdl2.SDLK_F12:

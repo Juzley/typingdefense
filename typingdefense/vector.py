@@ -16,23 +16,23 @@ class Vector(object):
 
     def __add__(self, other):
         if len(self.values) != len(other.values):
-            raise ArithmeticError("Adding vectors of different sizes")
+            raise ArithmeticError('Adding vectors of different sizes')
         return Vector(*[a + b for (a, b) in zip(self.values, other.values)])
 
     def __iadd__(self, other):
         if len(self.values) != len(other.values):
-            raise ArithmeticError("Adding vectors of different sizes")
+            raise ArithmeticError('Adding vectors of different sizes')
         self.values = [a + b for (a, b) in zip(self.values, other.values)]
         return self
 
     def __sub__(self, other):
         if len(self.values) != len(other.values):
-            raise ArithmeticError("Adding vectors of different sizes")
+            raise ArithmeticError('Adding vectors of different sizes')
         return Vector(*[a - b for (a, b) in zip(self.values, other.values)])
 
     def __isub__(self, other):
         if len(self.values) != len(other.values):
-            raise ArithmeticError("Adding vectors of different sizes")
+            raise ArithmeticError('Adding vectors of different sizes')
         self.values = [a - b for (a, b) in zip(self.values, other.values)]
         return self
 

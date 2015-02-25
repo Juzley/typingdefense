@@ -70,11 +70,13 @@ class Tile(object):
         self.height = height
         self.path_next = None
 
-        self._shader = None
-        self._transmatrix_uniform = 0
-        self._colour_uniform = 0
-        self._setup_shader(app.resources)
-        self._hex = glutils.Hex(Vector(self.x, self.y), Tile.SIZE, Tile.DEPTH)
+        self._shader = glutils.ShaderInstance(
+            app, 'level.vs', 'level.fs',
+            [('transMatrix', GL.GL_FLOAT_MAT4,
+              self._cam.trans_matrix_as_array()),
+             ('colourIn', GL.GL_FLOAT_VEC4, None)])
+        self._hex = glutils.Hex(Vector(self.x, self.y, 0),
+                                Tile.SIZE, Tile.DEPTH, height)
 
         self._outline_colour = Colour.from_cyan()
         self._outline_colour.s = 0.66
@@ -83,13 +85,6 @@ class Tile(object):
 
         # Dictionary of waves, keyed by the level phase in which they appear.
         self.waves = {}
-
-    def _setup_shader(self, resources):
-        """Load the shader program for the tile."""
-        self._shader = resources.load_shader_program("level.vs",
-                                                     "level.fs")
-        self._transmatrix_uniform = self._shader.uniform('transMatrix')
-        self._colour_uniform = self._shader.uniform('colourIn')
 
     @property
     def q(self):
@@ -133,27 +128,16 @@ class Tile(object):
 
     def draw(self, outline=True, faces=True):
         """Draw the tile."""
-        self._shader.use()
-        GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
-                              self._cam.trans_matrix_as_array())
+        with self._shader.use(download_uniforms=False):
+            if faces:
+                self._shader.set_uniform('transMatrix')
+                self._shader.set_uniform('colourIn', self._face_colour)
+                self._hex.draw_faces()
 
-        if faces:
-            GL.glUniform4f(self._colour_uniform,
-                            self._face_colour.r,
-                            self._face_colour.g,
-                            self._face_colour.b,
-                            self._face_colour.a)
-            self._hex.draw_faces()
-        if outline:
-            GL.glUniform4f(self._colour_uniform,
-                            self._outline_colour.r,
-                            self._outline_colour.g,
-                            self._outline_colour.b,
-                            self._outline_colour.a)
-            with glutils.linewidth(3):
-                self._hex.draw_outline()
-
-        GL.glUseProgram(0)
+            if outline:
+                self._shader.set_uniform('colourIn', self._outline_colour)
+                with glutils.linewidth(2):
+                    self._hex.draw_outline()
 
     def picking_draw(self, picking_shader):
         """Draw to the picking framebuffer.
@@ -335,7 +319,7 @@ class Level(object):
     def picking_draw(self):
         """Draw the tiles to the picking buffer."""
         with self._picking_texture.enable():
-            with self._picking_shader.use():
+            with self._picking_shader.use(download_uniforms=False):
                 GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
                 self._picking_shader.set_uniform('transMatrix')
                 for _, tile in numpy.ndenumerate(self.tiles):
@@ -372,7 +356,7 @@ class Level(object):
             # Update enemies
             for enemy in self._enemies:
                 enemy.update(self.timer)
-            unlink_enemies = [e for e in self._enemies if e.unlink()]
+            unlink_enemies = [e for e in self._enemies if e.unlink]
             for enemy in unlink_enemies:
                 self._enemies.remove(enemy)
 
@@ -389,7 +373,7 @@ class Level(object):
                 self.state = Level.State.build
                 # TODO: Check if we've finished the last phase.
 
-    def on_click(self, x, y):
+    def on_click(self, x, y, button):
         """Handle a mouse click."""
         hit_hud = self._hud.on_click(x, y)
 
