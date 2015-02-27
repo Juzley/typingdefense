@@ -9,7 +9,7 @@ class Vector(object):
         if len(args) == 0:
             self.values = [0, 0]
         else:
-            self.values = args
+            self.values = list(args)
 
     def __str__(self):
         return str(self.values)

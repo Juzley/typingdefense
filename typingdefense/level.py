@@ -8,6 +8,7 @@ from collections import deque
 from enum import Enum, unique
 from OpenGL import GL
 import typingdefense.glutils as glutils
+from .camera import Camera
 from .vector import Vector
 from .enemy import Wave
 from .util import Timer, Colour
@@ -219,7 +220,10 @@ class Level(object):
 
     # TODO: cam should be part of level probably
     def __init__(self, app, game):
-        self.cam = game.cam
+        self.cam = Camera(
+            origin=[0, -20, 40], target=[0, 0, 0], up=[0, 1, 0], fov=70,
+            screen_width=app.window_width, screen_height=app.window_height,
+            near=0.1, far=1000)
         self._app = app
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
@@ -233,7 +237,7 @@ class Level(object):
         self._picking_shader = glutils.ShaderInstance(
             app, 'level.vs', 'picking.fs',
             [['transMatrix', GL.GL_FLOAT_MAT4,
-              game.cam.trans_matrix_as_array()],
+              self.cam.trans_matrix_as_array()],
              ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
 
         # Level state

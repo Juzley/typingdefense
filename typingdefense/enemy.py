@@ -1,4 +1,5 @@
 """Module containing the different enemies that appear in the game."""
+import math
 import numpy
 from OpenGL import GL
 from .phrase import Phrase
@@ -8,8 +9,10 @@ from .util import Transform
 
 
 class Enemy(object):
-    SPEED = 1
+    SPEED = 4
     DAMAGE = 20
+    MOVE_PAUSE = 1.5
+    JUMP_HEIGHT = 2
 
     def __init__(self, app, level, tile):
         self.origin = Vector(tile.x, tile.y, tile.top)
@@ -19,9 +22,10 @@ class Enemy(object):
         self._current_tile = tile
         self._next_tile = tile.path_next
 
+        self._start_pos = None
+        self._end_pos = None
         self._move_start = 0
         self._move_end = 0
-        self._move_dir = None
         self._setup_move(level.timer)
 
         self.unlink = False
@@ -49,7 +53,12 @@ class Enemy(object):
         self.unlink = self.phrase.complete
 
     def update(self, timer):
-        self.origin += self._move_dir * timer.frametime * Enemy.SPEED
+        if timer.time >= self._move_start:
+            progress = ((timer.time - self._move_start) /
+                        (self._move_end - self._move_start))
+            self.origin = self._start_pos + ((self._end_pos - self._start_pos) *
+                                             progress)
+            self.origin.z += Enemy.JUMP_HEIGHT * math.sin(progress * math.pi)
 
         if timer.time >= self._move_end:
             if self._next_tile:
@@ -63,18 +72,15 @@ class Enemy(object):
 
     def _setup_move(self, timer):
         if self._next_tile:
-            start = Vector(self._current_tile.x,
-                           self._current_tile.y,
-                           self._current_tile.top)
-            end = Vector(self._next_tile.x,
-                         self._next_tile.y,
-                         self._next_tile.top)
-            distance = (end - start).magnitude
+            self._start_pos = Vector(self._current_tile.x,
+                                     self._current_tile.y,
+                                     self._current_tile.top)
+            self._end_pos = Vector(self._next_tile.x,
+                                   self._next_tile.y,
+                                   self._next_tile.top)
+            distance = (self._end_pos - self._start_pos).magnitude
 
-            self._move_dir = (end - start)
-            self._move_dir.normalize()
-
-            self._move_start = timer.time
+            self._move_start = timer.time + Enemy.MOVE_PAUSE
             self._move_end = self._move_start + distance / Enemy.SPEED
         else:
             self._move_dir = Vector(0, 0)
@@ -86,7 +92,7 @@ class Wave(object):
         self._app = app
         self._level = level
         self._start_time = 1
-        self._spawn_pause = 1
+        self._spawn_pause = 5
         self._last_spawn = 0
         self._spawn_count = 0
         self._spawn_target = 10
