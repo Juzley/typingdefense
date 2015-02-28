@@ -72,9 +72,10 @@ class ShaderInstance(object):
         """Download a uniform value to the shader."""
         uniform, gl_type, value = info
 
-        if gl_type == GL.GL_FLOAT_VEC4:
-            GL.glUniform4f(uniform,
-                            value[0], value[1], value[2], value[3])
+        if gl_type == GL.GL_FLOAT_VEC2:
+            GL.glUniform2f(uniform, value[0], value[1])
+        elif gl_type == GL.GL_FLOAT_VEC4:
+            GL.glUniform4f(uniform, value[0], value[1], value[2], value[3])
         elif gl_type == GL.GL_FLOAT_MAT4:
             GL.glUniformMatrix4fv(uniform, 1, GL.GL_TRUE, value)
 
@@ -191,7 +192,7 @@ class Hex(object):
                 GL.glDrawArrays(GL.GL_LINES, 6 + s * 18, 12)
 
     def draw(self, faces=True, outline=True):
-        if faces:
-            self.draw_faces()
         if outline:
             self.draw_outline()
+        if faces:
+            self.draw_faces()

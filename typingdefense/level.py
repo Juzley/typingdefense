@@ -59,30 +59,28 @@ class Tile(object):
     VERT_SPACING = HEIGHT * 0.75
     HORIZ_SPACING = WIDTH
 
-    def __init__(self, app, cam, coords, height):
+    def __init__(self, app, cam, coords, height, colour):
         """Construct a (hexagonal) tile.
 
         coords is a vector containing the horizontal coordinates of the tile,
         using axial coordinates.
         height is the number of stacks in the tile.
         """
-        self._cam = cam
         self.coords = coords
         self.height = height
+        self.colour = colour
         self.path_next = None
 
         self._shader = glutils.ShaderInstance(
             app, 'level.vs', 'level.fs',
-            [('transMatrix', GL.GL_FLOAT_MAT4,
-              self._cam.trans_matrix_as_array()),
+            [('transMatrix', GL.GL_FLOAT_MAT4, cam.trans_matrix_as_array()),
              ('colourIn', GL.GL_FLOAT_VEC4, None)])
         self._hex = glutils.Hex(Vector(self.x, self.y, 0),
                                 Tile.SIZE, Tile.DEPTH, height)
 
-        self._outline_colour = Colour.from_cyan()
-        self._outline_colour.s = 0.66
+        self._outline_colour = colour
         self._face_colour = copy.copy(self._outline_colour)
-        self._face_colour.s = 0.33
+        self._face_colour.s = self._face_colour.s / 2
 
         # Dictionary of waves, keyed by the level phase in which they appear.
         self.waves = {}
@@ -221,7 +219,7 @@ class Level(object):
     # TODO: cam should be part of level probably
     def __init__(self, app, game):
         self.cam = Camera(
-            origin=[0, -20, 40], target=[0, 0, 0], up=[0, 1, 0], fov=70,
+            origin=[0, -30, 60], target=[0, 0, 0], up=[0, 1, 0], fov=50,
             screen_width=app.window_width, screen_height=app.window_height,
             near=0.1, far=1000)
         self._app = app
@@ -273,11 +271,16 @@ class Level(object):
                 # Load tiles 
                 for tile_info in lvl_info['tiles']:
                     coords = Vector(tile_info['q'], tile_info['r'])
+                    colour = Colour(tile_info['colour']['r'],
+                                    tile_info['colour']['g'],
+                                    tile_info['colour']['b'],
+                                    tile_info['colour']['a'])
                     idx = self.tile_coords_to_array_index(coords)
                     self.tiles[idx.y, idx.x] = Tile(app,
                                                     self.cam,
                                                     coords,
-                                                    tile_info['height'])
+                                                    tile_info['height'],
+                                                    colour)
 
                 phase_idx = 0
                 for phase_info in lvl_info['waves']:
@@ -305,7 +308,12 @@ class Level(object):
         tiles = []
         for _, tile in numpy.ndenumerate(self.tiles):
             if tile:
-                tiles.append({'q': tile.q, 'r': tile.r, 'height': tile.height})
+                colour = {'r': tile.colour.r,
+                          'g': tile.colour.g,
+                          'b': tile.colour.b,
+                          'a': tile.colour.a}
+                tiles.append({'q': tile.q, 'r': tile.r, 'height': tile.height,
+                              'colour': colour})
         level['tiles'] = tiles
 
         phases = []

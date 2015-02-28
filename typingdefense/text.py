@@ -76,9 +76,11 @@ class Text(object):
                 self._font.bind()
 
     def draw(self):
+        GL.glEnable(GL.GL_BLEND)
         with self._vao.bind():
             for i in range(len(self._text)):
                 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, i * 4, 4)
+        GL.glEnable(GL.GL_BLEND)
 
 
 class Text2D(Text):
