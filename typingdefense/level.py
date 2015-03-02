@@ -13,6 +13,7 @@ from .vector import Vector
 from .enemy import Wave
 from .util import Timer, Colour
 from .hud import Hud
+from .phrasebook import PhraseBook
 
 
 def _cube_round(fc):
@@ -216,7 +217,6 @@ class Level(object):
         defend = 1
         build = 2
 
-    # TODO: cam should be part of level probably
     def __init__(self, app, game):
         self.cam = Camera(
             origin=[0, -30, 60], target=[0, 0, 0], up=[0, 1, 0], fov=50,
@@ -225,9 +225,10 @@ class Level(object):
         self._app = app
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
+        self.phrases = PhraseBook('resources/phrases/all.phr')
 
-        self._shader = app.resources.load_shader_program("level.vs",
-                                                         "level.fs")
+        self._shader = app.resources.load_shader_program('level.vs',
+                                                         'level.fs')
         self._transmatrix_uniform = self._shader.uniform('transMatrix')
 
         self._picking_texture = glutils.PickingTexture(app.window_width,

@@ -6,6 +6,7 @@ from .phrase import Phrase
 from .vector import Vector
 from .glutils import ShaderInstance, Hex
 from .util import Transform
+from .phrasebook import PhraseBook
 
 
 class Enemy(object):
@@ -16,7 +17,8 @@ class Enemy(object):
 
     def __init__(self, app, level, tile):
         self.origin = Vector(tile.x, tile.y, tile.top)
-        self.phrase = Phrase(app, level.cam, "PHRASE")
+        self.phrase = Phrase(app, level.cam,
+                             level.phrases.get_word(PhraseBook.SHORT_PHRASE))
 
         self._level = level
         self._current_tile = tile
@@ -52,6 +54,9 @@ class Enemy(object):
         self.phrase.on_type(c)
         self.unlink = self.phrase.complete
 
+        if self.unlink:
+            self._level.phrases.release_start_letter(self.phrase.start)
+
     def update(self, timer):
         if timer.time >= self._move_start:
             progress = ((timer.time - self._move_start) /
@@ -70,6 +75,9 @@ class Enemy(object):
                 self._level.base.damage(Enemy.DAMAGE)
                 self.unlink = True
 
+                if self.unlink:
+                    self._level.phrases.release_word(self.phrase.start)
+
     def _setup_move(self, timer):
         if self._next_tile:
             self._start_pos = Vector(self._current_tile.x,
@@ -82,8 +90,6 @@ class Enemy(object):
 
             self._move_start = timer.time + Enemy.MOVE_PAUSE
             self._move_end = self._move_start + distance / Enemy.SPEED
-        else:
-            self._move_dir = Vector(0, 0)
 
 
 class Wave(object):
