@@ -24,6 +24,7 @@ class Camera(object):
         # TODO: Do something if we're looking straight up or straight down
         self.right = np.cross(self.forward, self.up)
         self.right = self.right / np.linalg.norm(self.right)
+        self.up = np.cross(self.right, self.forward)
 
         rot = np.matrix([[self.right[0], self.right[1], self.right[2], 0],
                          [self.up[0], self.up[1], self.up[2], 0],
