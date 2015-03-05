@@ -10,15 +10,17 @@ from .phrasebook import PhraseBook
 
 
 class Enemy(object):
-    SPEED = 4
-    DAMAGE = 20
+    SPEED = 6
     MOVE_PAUSE = 1.5
-    JUMP_HEIGHT = 2
+    SLOW_FACTOR = 0.5
+    DAMAGE = 20
+    JUMP_HEIGHT = 3
 
     def __init__(self, app, level, tile):
         self.origin = Vector(tile.x, tile.y, tile.top)
         self.phrase = Phrase(app, level.cam,
                              level.phrases.get_word(PhraseBook.SHORT_PHRASE))
+        self.slowed = False
 
         self._level = level
         self._current_tile = tile
@@ -38,10 +40,20 @@ class Enemy(object):
              ('colourIn', GL.GL_FLOAT_VEC4, [1, 0, 0, 1])])
         self._hex = Hex(Vector(0, 0, 0), 0.5, 1)
 
+    def _scaled_speed(self):
+        if self._current_tile.slow:
+            return Enemy.SPEED * Enemy.SLOW_FACTOR
+        else:
+            return Enemy.SPEED
+
+    def _scaled_pause(self):
+        if self._current_tile.slow:
+            return Enemy.MOVE_PAUSE / Enemy.SLOW_FACTOR
+        else:
+            return Enemy.MOVE_PAUSE
+
     def draw(self):
         coords = Vector(self.origin.x, self.origin.y, self.origin.z)
-        self.phrase.draw(coords)
-
         t = Transform(coords)
         m = self._level.cam.trans_matrix * t.matrix
         self._shader.set_uniform('transMatrix',
@@ -49,6 +61,8 @@ class Enemy(object):
                                  download=False)
         with self._shader.use():
             self._hex.draw()
+
+        self.phrase.draw(coords)
 
     def on_text(self, c):
         self.phrase.on_type(c)
@@ -88,8 +102,8 @@ class Enemy(object):
                                    self._next_tile.top)
             distance = (self._end_pos - self._start_pos).magnitude
 
-            self._move_start = timer.time + Enemy.MOVE_PAUSE
-            self._move_end = self._move_start + distance / Enemy.SPEED
+            self._move_start = timer.time + self._scaled_pause()
+            self._move_end = self._move_start + distance / self._scaled_speed()
 
 
 class Wave(object):

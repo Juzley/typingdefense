@@ -62,7 +62,7 @@ class Hud(object):
         self._slow_tower_button = Button(app, 70, 20)
 
     def draw(self):
-        self._test_text.draw()
+        #self._test_text.draw()
         self._play_button.draw()
         self._slow_tower_button.draw()
 

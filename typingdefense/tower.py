@@ -22,10 +22,17 @@ class Tower(object):
             self._hex.draw()
 
 class SlowTower(Tower):
+    RANGE = 1
+    SLOW_FACTOR = 2
     def __init__(self, app, level, tile):
         super().__init__(app, level, tile)
         self.cost = 50
         self._level = level
+        self._targets = []
+        self._coords = Vector(tile.x, tile.y)
+
+        for t in level.tile_neighbours(tile):
+            t.slow = True
 
     def update(self, timer):
         super().update(timer)
@@ -38,3 +45,4 @@ class SlowTower(Tower):
 # Kill tower (kills an enemy)
 # Weaken tower (removes letters or words/phrases for multi-phrase enemies)
 # Money tower (makes enemies more valuable if killed in their range?)
+# Upgraded towers?

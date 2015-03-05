@@ -14,6 +14,7 @@ class PhraseText(Text):
 
         self._app = app
         self._cam = cam
+        # TODO: Use ShaderInstance
         self._shader = app.resources.load_shader_program('phrase_text.vs',
                                                          'phrase_text.fs')
         self._transmatrix_uniform = self._shader.uniform('transMatrix')
@@ -32,12 +33,14 @@ class PhraseText(Text):
                        self._app.window_width, self._app.window_height)
         GL.glUniform1i(self._texunit_uniform, 0)
 
+        GL.glDisable(GL.GL_DEPTH_TEST)
         with self._vao.bind():
             GL.glUniform3f(self._colour_uniform, 1, 0, 0)
             for i in range(len(self._text)):
                 if i == typedchars:
                     GL.glUniform3f(self._colour_uniform, 1, 1, 1)
                 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, i * 4, 4)
+        GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glUseProgram(0)
 
 

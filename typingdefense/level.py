@@ -87,6 +87,9 @@ class Tile(object):
         # Dictionary of waves, keyed by the level phase in which they appear.
         self.waves = {}
 
+        # Whether the tile is a 'slow movement' tile.
+        self.slow = False
+
     @property
     def q(self):
         """The axial q coord of the tile."""
@@ -244,9 +247,9 @@ class Level(object):
         self.money = 0
         self.state = Level.State.build
         self._target = None
-        self._enemies = []
         self._phase = 0
         self._towers = []
+        self.enemies = []
         self.waves = []
         self.tower_creator = None
 
@@ -342,8 +345,6 @@ class Level(object):
 
     def draw(self):
         """Draw the level."""
-        self._hud.draw()
-
         # Do the picking draw first.
         self.picking_draw()
 
@@ -353,10 +354,12 @@ class Level(object):
                 tile.draw()
         self.base.draw()
 
-        for enemy in self._enemies:
-            enemy.draw()
         for tower in self._towers:
             tower.draw()
+        for enemy in self.enemies:
+            enemy.draw()
+
+        self._hud.draw()
 
     def play(self):
         """Move from build into play state."""
@@ -371,11 +374,11 @@ class Level(object):
 
         if self.state == Level.State.defend:
             # Update enemies
-            for enemy in self._enemies:
+            for enemy in self.enemies:
                 enemy.update(self.timer)
-            unlink_enemies = [e for e in self._enemies if e.unlink]
+            unlink_enemies = [e for e in self.enemies if e.unlink]
             for enemy in unlink_enemies:
-                self._enemies.remove(enemy)
+                self.enemies.remove(enemy)
 
             # Update towers
             for tower in self._towers:
@@ -390,7 +393,7 @@ class Level(object):
                     active_waves = True
 
             # Check if the current phase is finished.
-            if not active_waves and len(self._enemies) == 0:
+            if not active_waves and len(self.enemies) == 0:
                 self.state = Level.State.build
                 # TODO: Check if we've finished the last phase.
 
@@ -424,7 +427,7 @@ class Level(object):
 
     def add_enemy(self, enemy):
         """Add an enemy to the level."""
-        self._enemies.append(enemy)
+        self.enemies.append(enemy)
 
     def tile_coords_to_array_index(self, coords):
         """Work out the array slot for a given set of axial tile coords."""
@@ -466,7 +469,7 @@ class Level(object):
         return (tc.q >= self._min_coords.q and tc.q <= self._max_coords.q and
                 tc.r >= self._min_coords.r and tc.r <= self._max_coords.r)
 
-    def _tile_neighbours(self, tile):
+    def tile_neighbours(self, tile):
         """Find the neighbouring tiles for a given tile.
 
         Takes a Tile and returns a list of Tiles.
@@ -501,7 +504,7 @@ class Level(object):
         while len(frontier) > 0:
             tile = frontier.popleft()
 
-            for nxt in [t for t in self._tile_neighbours(tile)
+            for nxt in [t for t in self.tile_neighbours(tile)
                         if t.empty and t not in visited]:
                 frontier.append(nxt)
                 visited.add(nxt)
@@ -510,7 +513,7 @@ class Level(object):
     def _update_target(self, c):
         """Check whether we have a target, and find a new one if not."""
         if not self._target or not self._target():
-            targets = [enemy for enemy in self._enemies
+            targets = [enemy for enemy in self.enemies
                        if enemy.phrase.start == c]
             if targets:
                 self._target = weakref.ref(targets[0])

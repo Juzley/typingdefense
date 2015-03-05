@@ -99,6 +99,10 @@ class Vector(object):
         self.values[1] = val
 
     @property
+    def xy(self):
+        return Vector(self.x, self.y)
+
+    @property
     def magnitude(self):
         s = 0
         for v in self.values:
