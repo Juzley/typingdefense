@@ -1,7 +1,8 @@
 import numpy
 import OpenGL.GL as GL
-import typingdefense.glutils as glutils
-from typingdefense.text import Text, Text2D
+import typingdefense.tower as tower
+from .text import Text, Text2D
+from .glutils import VertexArray, VertexBuffer
 
 
 class Button(object):
@@ -9,8 +10,8 @@ class Button(object):
 
     def __init__(self, app, x, y):
         self._app = app
-        self._vao = glutils.VertexArray()
-        self._vbo = glutils.VertexBuffer()
+        self._vao = VertexArray()
+        self._vbo = VertexBuffer()
         self.x = x
         self.y = y
 
@@ -55,13 +56,21 @@ class Hud(object):
         self._level = level
         self._test_text = Text2D(app, font, "HUD", 400, 10, 32,
                                  Text.Align.center)
-        self._play_button = Button(app, 10, 10)
+
+        # TODO: List of buttons, lambdas for behaviours?
+        self._play_button = Button(app, 10, 20)
+        self._slow_tower_button = Button(app, 70, 20)
 
     def draw(self):
         self._test_text.draw()
         self._play_button.draw()
+        self._slow_tower_button.draw()
 
     def on_click(self, x, y):
         if self._play_button.hit(x, y):
             self._level.play()
             return True
+        elif self._slow_tower_button.hit(x, y):
+            self._level.tower_creator = tower.SlowTower
+            return True
+        return False

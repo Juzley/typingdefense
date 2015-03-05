@@ -71,6 +71,7 @@ class Tile(object):
         self.height = height
         self.colour = colour
         self.path_next = None
+        self.tower = None
 
         self._shader = glutils.ShaderInstance(
             app, 'level.vs', 'level.fs',
@@ -123,8 +124,7 @@ class Tile(object):
 
     @property
     def empty(self):
-        # TODO
-        return True
+        return self.tower == None
 
     def draw(self, outline=True, faces=True):
         """Draw the tile."""
@@ -179,8 +179,8 @@ class Base(object):
         GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
         GL.glBindVertexArray(0)
 
-        self._shader = app.resources.load_shader_program("level.vs",
-                                                         "level.fs")
+        self._shader = app.resources.load_shader_program('level.vs',
+                                                         'level.fs')
         self._transmatrix_uniform = self._shader.uniform('transMatrix')
         self._colour_uniform = self._shader.uniform('colourIn')
 
@@ -218,11 +218,11 @@ class Level(object):
         build = 2
 
     def __init__(self, app, game):
+        self._app = app
         self.cam = Camera(
             origin=[0, -30, 60], target=[0, 0, 0], up=[0, 1, 0], fov=50,
             screen_width=app.window_width, screen_height=app.window_height,
             near=0.1, far=1000)
-        self._app = app
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
         self.phrases = PhraseBook('resources/phrases/all.phr')
@@ -246,19 +246,20 @@ class Level(object):
         self._target = None
         self._enemies = []
         self._phase = 0
+        self._towers = []
         self.waves = []
+        self.tower_creator = None
 
         # Map/graphics etc.
         self._min_coords = None
         self._max_coords = None
         self.tiles = None
         self.base = None
-        self.load(app)
-        self._build_paths()
+        self.load()
 
         self._hud = Hud(app, self)
 
-    def load(self, app):
+    def load(self):
         """Load the level."""
         self._min_coords = Vector(-100, -100)
         self._max_coords = Vector(100, 100)
@@ -277,7 +278,7 @@ class Level(object):
                                     tile_info['colour']['b'],
                                     tile_info['colour']['a'])
                     idx = self.tile_coords_to_array_index(coords)
-                    self.tiles[idx.y, idx.x] = Tile(app,
+                    self.tiles[idx.y, idx.x] = Tile(self._app,
                                                     self.cam,
                                                     coords,
                                                     tile_info['height'],
@@ -291,7 +292,7 @@ class Level(object):
                         tile = self.lookup_tile(coords)
                         wave = Wave(self._app, self, tile)
                         tile.waves[phase_idx] = wave
-                        waves.append(Wave(self._app, self, tile))
+                        waves.append(wave)
                     self.waves.append(waves)
                     phase_idx += 1
 
@@ -299,7 +300,7 @@ class Level(object):
             pass
 
         tile = self.lookup_tile(Vector(0, 0))
-        self.base = Base(app, self.cam, tile, Vector(0, 0), Tile.HEIGHT)
+        self.base = Base(self._app, self.cam, tile, Vector(0, 0), Tile.HEIGHT)
 
     def save(self):
         """Save the edited level to file."""
@@ -354,10 +355,13 @@ class Level(object):
 
         for enemy in self._enemies:
             enemy.draw()
+        for tower in self._towers:
+            tower.draw()
 
     def play(self):
         """Move from build into play state."""
         if self.state == Level.State.build:
+            self._build_paths()
             self.state = Level.State.defend
             self._phase += 1
 
@@ -372,6 +376,10 @@ class Level(object):
             unlink_enemies = [e for e in self._enemies if e.unlink]
             for enemy in unlink_enemies:
                 self._enemies.remove(enemy)
+
+            # Update towers
+            for tower in self._towers:
+                tower.update(self.timer)
 
             # Spawn new enemies
             active_waves = False
@@ -388,12 +396,18 @@ class Level(object):
 
     def on_click(self, x, y, button):
         """Handle a mouse click."""
-        hit_hud = self._hud.on_click(x, y)
 
-        if not hit_hud:
-            tile = self.screen_coords_to_tile(Vector(x, y))
-            if tile:
-                pass
+        if self.state == Level.State.build:
+            hit_hud = self._hud.on_click(x, y)
+
+            if not hit_hud:
+                tile = self.screen_coords_to_tile(Vector(x, y))
+                if tile and tile.empty:
+                    # TODO: Check if the tower ends up leaving no route to the
+                    # base
+                    tower = self.tower_creator(self._app, self, tile)
+                    self._towers.append(tower)
+                    tile.tower = tower
 
     def on_keydown(self, key):
         """Handle keydown events."""
