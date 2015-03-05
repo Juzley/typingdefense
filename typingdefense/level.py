@@ -120,14 +120,14 @@ class Tile(object):
         """Convert world (x, y) coordinates to tile (q, r) coordinates.
 
         Note that this is a 2D conversion only."""
-        # TODO: is this in the right place?
         q = (world_coords.x * math.sqrt(3) / 3 - world_coords.y / 3) / Tile.SIZE
         r = (world_coords.y * 2 / 3) / Tile.SIZE
         return _hex_round(Vector(q, r))
 
     @property
     def empty(self):
-        return self.tower == None
+        """Indicate whether the tile has a tower on it."""
+        return self.tower is None
 
     def draw(self, outline=True, faces=True):
         """Draw the tile."""
@@ -273,7 +273,7 @@ class Level(object):
         try:
             with open('resources/levels/test_level.tdl', 'r') as f:
                 lvl_info = json.load(f)
-                # Load tiles 
+                # Load tiles
                 for tile_info in lvl_info['tiles']:
                     coords = Vector(tile_info['q'], tile_info['r'])
                     colour = Colour(tile_info['colour']['r'],
@@ -287,6 +287,7 @@ class Level(object):
                                                     tile_info['height'],
                                                     colour)
 
+                # Load Waves
                 phase_idx = 0
                 for phase_info in lvl_info['waves']:
                     waves = []
@@ -304,6 +305,8 @@ class Level(object):
 
         tile = self.lookup_tile(Vector(0, 0))
         self.base = Base(self._app, self.cam, tile, Vector(0, 0), Tile.HEIGHT)
+
+        self.money = 100
 
     def save(self):
         """Save the edited level to file."""
@@ -408,9 +411,12 @@ class Level(object):
                 if tile and tile.empty:
                     # TODO: Check if the tower ends up leaving no route to the
                     # base
-                    tower = self.tower_creator(self._app, self, tile)
-                    self._towers.append(tower)
-                    tile.tower = tower
+                    if (self.tower_creator is not None and
+                        self.money > self.tower_creator.COST):
+                        tower = self.tower_creator(self._app, self, tile)
+                        self._towers.append(tower)
+                        tile.tower = tower
+                        self.money -= tower.COST
 
     def on_keydown(self, key):
         """Handle keydown events."""
@@ -420,8 +426,6 @@ class Level(object):
         """Handle text input."""
         self._update_target(c)
         if self._target and self._target():
-            # TODO: Enemy should have an on-text rather than getting the
-            # phrase directly, to allow for stuff doing things on miss etc.
             target = self._target()
             target.on_text(c)
 

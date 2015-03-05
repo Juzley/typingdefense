@@ -22,11 +22,9 @@ class Tower(object):
             self._hex.draw()
 
 class SlowTower(Tower):
-    RANGE = 1
-    SLOW_FACTOR = 2
+    COST = 50
     def __init__(self, app, level, tile):
         super().__init__(app, level, tile)
-        self.cost = 50
         self._level = level
         self._targets = []
         self._coords = Vector(tile.x, tile.y)

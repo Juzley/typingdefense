@@ -54,15 +54,18 @@ class Hud(object):
     def __init__(self, app, level):
         font = app.resources.load_font("hudfont.fnt")
         self._level = level
-        self._test_text = Text2D(app, font, "HUD", 400, 10, 32,
-                                 Text.Align.center)
 
-        # TODO: List of buttons, lambdas for behaviours?
+        self._money = Text2D(app, font, str(level.money),
+                             app.window_width / 2, app.window_height - 32, 32,
+                             Text.Align.center)
+
         self._play_button = Button(app, 10, 20)
         self._slow_tower_button = Button(app, 70, 20)
 
     def draw(self):
-        #self._test_text.draw()
+        self._money.text = str(self._level.money)
+        self._money.draw()
+
         self._play_button.draw()
         self._slow_tower_button.draw()
 

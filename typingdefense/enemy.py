@@ -15,6 +15,7 @@ class Enemy(object):
     SLOW_FACTOR = 0.5
     DAMAGE = 20
     JUMP_HEIGHT = 3
+    MONEY = 100
 
     def __init__(self, app, level, tile):
         self.origin = Vector(tile.x, tile.y, tile.top)
@@ -66,10 +67,11 @@ class Enemy(object):
 
     def on_text(self, c):
         self.phrase.on_type(c)
-        self.unlink = self.phrase.complete
 
-        if self.unlink:
+        if self.phrase.complete:
+            self._level.money += Enemy.MONEY
             self._level.phrases.release_start_letter(self.phrase.start)
+            self.unlink = True
 
     def update(self, timer):
         if timer.time >= self._move_start:
