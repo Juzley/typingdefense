@@ -59,8 +59,10 @@ class Hud(object):
                              app.window_width / 2, app.window_height - 32, 32,
                              Text.Align.center)
 
-        self._play_button = Button(app, 10, 20)
+        self._play_button = Button(app, 20, 20)
         self._slow_tower_button = Button(app, 70, 20)
+        self._kill_tower_button = Button(app, 120, 20)
+        self._money_tower_button = Button(app, 170, 20)
 
     def draw(self):
         self._money.text = str(self._level.money)
@@ -68,6 +70,8 @@ class Hud(object):
 
         self._play_button.draw()
         self._slow_tower_button.draw()
+        self._kill_tower_button.draw()
+        self._money_tower_button.draw()
 
     def on_click(self, x, y):
         if self._play_button.hit(x, y):
@@ -76,4 +80,8 @@ class Hud(object):
         elif self._slow_tower_button.hit(x, y):
             self._level.tower_creator = tower.SlowTower
             return True
+        elif self._kill_tower_button.hit(x, y):
+            self._level.tower_creator = tower.KillTower
+        elif self._money_tower_button.hit(x, y):
+            self._level.tower_creator = tower.MoneyTower
         return False

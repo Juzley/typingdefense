@@ -10,12 +10,12 @@ from .phrasebook import PhraseBook
 
 
 class Enemy(object):
-    SPEED = 6
-    MOVE_PAUSE = 1.5
-    SLOW_FACTOR = 0.5
-    DAMAGE = 20
-    JUMP_HEIGHT = 3
-    MONEY = 100
+    _SPEED = 6
+    _MOVE_PAUSE = 1.5
+    _SLOW_FACTOR = 0.5
+    _DAMAGE = 20
+    _JUMP_HEIGHT = 3
+    _START_REWARD = 100
 
     def __init__(self, app, level, tile):
         self.origin = Vector(tile.x, tile.y, tile.top)
@@ -24,7 +24,7 @@ class Enemy(object):
         self.slowed = False
 
         self._level = level
-        self._current_tile = tile
+        self.current_tile = tile
         self._next_tile = tile.path_next
 
         self._start_pos = None
@@ -35,6 +35,8 @@ class Enemy(object):
 
         self.unlink = False
 
+        self.value = Enemy._START_REWARD
+
         self._shader = ShaderInstance(
             app, 'level.vs', 'level.fs',
             [('transMatrix', GL.GL_FLOAT_MAT4, None),
@@ -42,16 +44,16 @@ class Enemy(object):
         self._hex = Hex(Vector(0, 0, 0), 0.5, 1)
 
     def _scaled_speed(self):
-        if self._current_tile.slow:
-            return Enemy.SPEED * Enemy.SLOW_FACTOR
+        if self.current_tile.slow:
+            return Enemy._SPEED * Enemy._SLOW_FACTOR
         else:
-            return Enemy.SPEED
+            return Enemy._SPEED
 
     def _scaled_pause(self):
-        if self._current_tile.slow:
-            return Enemy.MOVE_PAUSE / Enemy.SLOW_FACTOR
+        if self.current_tile.slow:
+            return Enemy._MOVE_PAUSE / Enemy._SLOW_FACTOR
         else:
-            return Enemy.MOVE_PAUSE
+            return Enemy._MOVE_PAUSE
 
     def draw(self):
         coords = Vector(self.origin.x, self.origin.y, self.origin.z)
@@ -69,9 +71,13 @@ class Enemy(object):
         self.phrase.on_type(c)
 
         if self.phrase.complete:
-            self._level.money += Enemy.MONEY
+            self._level.money += self.value
             self._level.phrases.release_start_letter(self.phrase.start)
             self.unlink = True
+
+    def kill(self):
+        self._level.phrases.release_start_letter(self.phrase.start)
+        self.unlink = True
 
     def update(self, timer):
         if timer.time >= self._move_start:
@@ -79,26 +85,26 @@ class Enemy(object):
                         (self._move_end - self._move_start))
             self.origin = self._start_pos + ((self._end_pos - self._start_pos) *
                                              progress)
-            self.origin.z += Enemy.JUMP_HEIGHT * math.sin(progress * math.pi)
+            self.origin.z += Enemy._JUMP_HEIGHT * math.sin(progress * math.pi)
 
         if timer.time >= self._move_end:
             if self._next_tile:
-                self._current_tile = self._next_tile
+                self.current_tile = self._next_tile
                 self._next_tile = self._next_tile.path_next
                 self._setup_move(timer)
 
-            if self._current_tile == self._level.base.tile:
-                self._level.base.damage(Enemy.DAMAGE)
+            if self.current_tile == self._level.base.tile:
+                self._level.base.damage(Enemy._DAMAGE)
                 self.unlink = True
 
                 if self.unlink:
-                    self._level.phrases.release_word(self.phrase.start)
+                    self._level.phrases.release_start_letter(self.phrase.start)
 
     def _setup_move(self, timer):
         if self._next_tile:
-            self._start_pos = Vector(self._current_tile.x,
-                                     self._current_tile.y,
-                                     self._current_tile.top)
+            self._start_pos = Vector(self.current_tile.x,
+                                     self.current_tile.y,
+                                     self.current_tile.top)
             self._end_pos = Vector(self._next_tile.x,
                                    self._next_tile.y,
                                    self._next_tile.top)

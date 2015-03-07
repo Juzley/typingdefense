@@ -306,7 +306,7 @@ class Level(object):
         tile = self.lookup_tile(Vector(0, 0))
         self.base = Base(self._app, self.cam, tile, Vector(0, 0), Tile.HEIGHT)
 
-        self.money = 100
+        self.money = 500
 
     def save(self):
         """Save the edited level to file."""
@@ -385,7 +385,7 @@ class Level(object):
 
             # Update towers
             for tower in self._towers:
-                tower.update(self.timer)
+                tower.update()
 
             # Spawn new enemies
             active_waves = False
@@ -412,7 +412,7 @@ class Level(object):
                     # TODO: Check if the tower ends up leaving no route to the
                     # base
                     if (self.tower_creator is not None and
-                        self.money > self.tower_creator.COST):
+                        self.money >= self.tower_creator.COST):
                         tower = self.tower_creator(self._app, self, tile)
                         self._towers.append(tower)
                         tile.tower = tower
