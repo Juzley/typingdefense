@@ -129,16 +129,24 @@ class Tile(object):
         """Indicate whether the tile has a tower on it."""
         return self.tower is None
 
-    def draw(self, outline=True, faces=True):
+    def draw(self, outline=True, faces=True,
+             outline_colour=None, face_colour=None):
         """Draw the tile."""
         with self._shader.use(download_uniforms=False):
             if faces:
                 self._shader.set_uniform('transMatrix')
-                self._shader.set_uniform('colourIn', self._face_colour)
+
+                if face_colour is None:
+                    self._shader.set_uniform('colourIn', self._face_colour)
+                else:
+                    self._shader.set_uniform('colourIn', face_colour)
                 self._hex.draw_faces()
 
             if outline:
-                self._shader.set_uniform('colourIn', self._outline_colour)
+                if outline_colour is None:
+                    self._shader.set_uniform('colourIn', self._outline_colour)
+                else:
+                    self._shader.set_uniform('colourIn', self._face_colour)
                 with glutils.linewidth(2):
                     self._hex.draw_outline()
 

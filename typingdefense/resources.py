@@ -56,6 +56,9 @@ class Font(object):
 
     def char_width(self, c, h):
         """Return the width, in pixels, for a given character."""
+        if c not in self._chars:
+            return 0
+
         charinfo = self._chars[c]
         return charinfo.width * h / self._charheight
 
@@ -66,6 +69,9 @@ class Font(object):
         texture coordinates in the following order: bottom left, bottom right
         top left, top right.
         """
+        if c not in self._chars:
+            return [0, 0, 0, 0, 0, 0, 0, 0]
+
         charinfo = self._chars[c]
         x = charinfo.x / self._texture.width
         y = charinfo.y / self._texture.height
@@ -176,7 +182,7 @@ class Resources(object):
     def load_shader_program(self, vs_filename, fs_filename):
         vs_path = self._build_path(self.shader_path, vs_filename)
         fs_path = self._build_path(self.shader_path, fs_filename)
-        if (vs_path, fs_path)  not in self._shader_programs:
+        if (vs_path, fs_path) not in self._shader_programs:
             vs = self.load_shader(vs_filename, GL.GL_VERTEX_SHADER)
             fs = self.load_shader(fs_filename, GL.GL_FRAGMENT_SHADER)
             program = ShaderProgram(vs, fs)

@@ -96,5 +96,10 @@ class PhraseBook(object):
         self._available_letters.remove(word[0])
         return word
 
+    def get_phrase(self, length, count):
+        if count > 1:
+            raise NotImplementedError('TODO: Multi-word phrases')
+        return self.get_word(length)
+
     def release_start_letter(self, letter):
         self._available_letters.add(letter)

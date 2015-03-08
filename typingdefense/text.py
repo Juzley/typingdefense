@@ -75,13 +75,17 @@ class Text(object):
                                          ctypes.c_void_p(8))
                 self._font.bind()
 
-    def draw(self):
+    def draw(self, text=None):
+        """Draw the text."""
+        if text is not None:
+            self.text = text
         with self._vao.bind():
             for i in range(len(self._text)):
                 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, i * 4, 4)
 
 
 class Text2D(Text):
+    """2D Text, used for HUD drawing."""
     def __init__(self, app, font, text, x, y, height, align=Text.Align.left):
         super().__init__(font, text, x, y, height, align)
 
@@ -91,11 +95,11 @@ class Text2D(Text):
         self._screen_uniform = self._shader.uniform('screenDimensions')
         self._texunit_uniform = self._shader.uniform('texUnit')
 
-    def draw(self):
+    def draw(self, text=None):
         """Draw the text."""
         self._shader.use()
         GL.glUniform2f(self._screen_uniform,
                        self._app.window_width, self._app.window_height)
         GL.glUniform1i(self._texunit_uniform, 0)
-        super().draw()
+        super().draw(text)
         GL.glUseProgram(0)

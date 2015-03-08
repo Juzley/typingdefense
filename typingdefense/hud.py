@@ -52,7 +52,7 @@ class Button(object):
 
 class Hud(object):
     def __init__(self, app, level):
-        font = app.resources.load_font("hudfont.fnt")
+        font = app.resources.load_font('hudfont.fnt')
         self._level = level
 
         self._money = Text2D(app, font, str(level.money),
