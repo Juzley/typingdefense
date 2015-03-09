@@ -1,4 +1,5 @@
 """Module containing the different enemies that appear in the game."""
+import sys
 import math
 import numpy
 from OpenGL import GL
@@ -162,6 +163,9 @@ class BasicEnemy(_BaseEnemy, metaclass=_EnemyMeta):
                          damage=BasicEnemy._DAMAGE,
                          colour=Colour.from_red())
 
+class AccelEnemy(_BaseEnemy, metaclass=_EnemyMeta):
+    pass
+
 
 class Wave(object):
     def __init__(self, app, level, tile,
@@ -172,6 +176,11 @@ class Wave(object):
         self._level = level
         self._last_spawn = 0
         self._spawn_count = 0
+
+        # To make level saving/loading easier, allow enemy-type to be passed
+        # in as a string. Convert to a class here.
+        if type(enemy_type) == str:
+            enemy_type = getattr(sys.modules[__name__], enemy_type)
 
         self.enemy_type = enemy_type
         self.enemy_count = enemy_count

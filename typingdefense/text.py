@@ -20,7 +20,8 @@ class Text(object):
         self._font = font
         self._vao = glutils.VertexArray()
         self._vbo = glutils.VertexBuffer()
-        self._height = height
+        self.height = height
+        self.width = 0
         self._align = align
         self._x = x
         self._y = y
@@ -45,20 +46,24 @@ class Text(object):
 
             # If the text isn't left-aligned, calculate how much we need to
             # adjust the x coordinate by
-            if self._align != Text.Align.left:
-                for c in self._text:
-                    width = self._font.char_width(c, self._height)
-                    x -= width if self._align == Text.Align.right else width / 2
+            self.width = 0
+            for c in self._text:
+                self.width += self._font.char_width(c, self.height)
+
+            if self._align == Text.Align.center:
+                x -= self.width / 2
+            elif self._align == Text.Align.right:
+                x -= self.width
 
             data = []
             for c in self._text:
-                width = self._font.char_width(c, self._height)
+                width = self._font.char_width(c, self.height)
                 tc = self._font.texcoords(c)
 
-                data += [x, y, tc[0], tc[1],                         # Bot Left
-                         x + width, y, tc[2], tc[3],                 # Bot Right
-                         x, y + self._height, tc[4], tc[5],          # Top Left
-                         x + width, y + self._height, tc[6], tc[7]]  # Top Right
+                data += [x, y, tc[0], tc[1],                        # Bot Left
+                         x + width, y, tc[2], tc[3],                # Bot Right
+                         x, y + self.height, tc[4], tc[5],          # Top Left
+                         x + width, y + self.height, tc[6], tc[7]]  # Top Right
                 x += width
 
             with self._vao.bind():

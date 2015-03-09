@@ -48,7 +48,7 @@ class Phrase(object):
     """Class representing an in-game phrase."""
 
     def __init__(self, app, cam, phrase):
-        font = app.resources.load_font("menufont.fnt")
+        font = app.resources.load_font('menufont.fnt')
         self._text = PhraseText(app, cam, font, phrase, 0, 0, 48,
                                 Text.Align.center)
         self._typed_chars = 0

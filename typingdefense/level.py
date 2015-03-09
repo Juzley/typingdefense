@@ -297,16 +297,21 @@ class Level(object):
 
                 # Load Waves
                 phase_idx = 0
-                for phase_info in lvl_info['waves']:
-                    waves = []
-                    for wave_info in phase_info:
-                        coords = Vector(wave_info['q'], wave_info['r'])
-                        tile = self.lookup_tile(coords)
-                        wave = Wave(self._app, self, tile)
-                        tile.waves[phase_idx] = wave
-                        waves.append(wave)
-                    self.waves.append(waves)
-                    phase_idx += 1
+                if 'waves' in lvl_info:
+                    for phase_info in lvl_info['waves']:
+                        waves = []
+                        for wave_info in phase_info:
+                            coords = Vector(wave_info['q'], wave_info['r'])
+                            tile = self.lookup_tile(coords)
+                            wave = Wave(self._app, self, tile,
+                                        enemy_count=wave_info['enemy_count'],
+                                        start_time=wave_info['start_time'],
+                                        spawn_gap=wave_info['spawn_gap'],
+                                        enemy_type=wave_info['enemy_type'])
+                            tile.waves[phase_idx] = wave
+                            waves.append(wave)
+                        self.waves.append(waves)
+                        phase_idx += 1
 
         except FileNotFoundError:
             pass
@@ -336,7 +341,11 @@ class Level(object):
         for phase in self.waves:
             waves = []
             for wave in phase:
-                waves.append({'q': wave.tile.q, 'r': wave.tile.r})
+                waves.append({'q': wave.tile.q, 'r': wave.tile.r,
+                              'enemy_type': wave.enemy_type.__name__,
+                              'enemy_count': wave.enemy_count,
+                              'start_time': wave.start_time,
+                              'spawn_gap': wave.spawn_gap})
             phases.append(waves)
 
         level['waves'] = phases

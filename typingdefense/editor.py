@@ -9,7 +9,7 @@ from .util import Colour
 from .enemy import Wave, enemy_types
 from .vector import Vector
 from .level import Tile
-from .text import Text, Text2D
+from .text import Text2D
 
 
 class _ColourButton(object):
@@ -59,18 +59,41 @@ class _EditorHud(object):
         self._editor = editor
         self._colourbutton = _ColourButton(app, Vector(10, 10))
 
-        font = app.resources.load_font('hudfont.fnt')
-        self._enemy_type_text = Text2D(app, font, '', 400, 300, 32,
-                                       Text.Align.left)
+        font = app.resources.load_font('menufont.fnt')
+        self._enemy_type_text = Text2D(app, font, '', 0, 0, 32)
+        self._enemy_count_text = Text2D(app, font, '', 0, 32, 32)
+        self._start_time_text = Text2D(app, font, '', 0, 64, 32)
+        self._spawn_gap_text = Text2D(app, font, '', 0, 96, 32)
 
     def draw(self):
         """Draw the HUD."""
-        self._colourbutton.draw(self._editor.colour)
+        if self._editor.state == Editor.State.tile:
+            self._colourbutton.draw(self._editor.colour)
 
         if self._editor.selected_wave is not None:
-            print(self._editor.selected_wave.enemy_type)
-            self._enemy_type_text.draw(
-                str(self._editor.selected_wave.enemy_type))
+            enemy_type_str = self._editor.selected_wave.enemy_type.__name__
+            if self._editor.wave_edit_mode == Editor.WaveEditMode.enemy_type:
+                enemy_type_str += ' +/-'
+
+            enemy_count_str = 'Count: {}'.format(
+                self._editor.selected_wave.enemy_count)
+            if self._editor.wave_edit_mode == Editor.WaveEditMode.enemy_count:
+                enemy_count_str += ' +/-'
+
+            start_time_str = 'Start: {}'.format(
+                self._editor.selected_wave.start_time)
+            if self._editor.wave_edit_mode == Editor.WaveEditMode.start_time:
+                start_time_str += ' +/-'
+
+            spawn_gap_str = 'Spawn gap: {}'.format(
+                self._editor.selected_wave.spawn_gap)
+            if self._editor.wave_edit_mode == Editor.WaveEditMode.spawn_gap:
+                spawn_gap_str += ' +/-'
+
+            self._enemy_type_text.draw(enemy_type_str)
+            self._enemy_count_text.draw(enemy_count_str)
+            self._start_time_text.draw(start_time_str)
+            self._spawn_gap_text.draw(spawn_gap_str)
 
 
 class Editor(object):
@@ -82,8 +105,17 @@ class Editor(object):
         wave = 2
         base = 3
 
+    @unique
+    class WaveEditMode(Enum):
+        """Enumeration of different wave editing modes."""
+        enemy_type = 1
+        enemy_count = 2
+        start_time = 3
+        spawn_gap = 4
+
     def __init__(self, app, level):
         self.state = Editor.State.tile
+        self.wave_edit_mode = Editor.WaveEditMode.enemy_count
         self._app = app
         self._level = level
 
@@ -130,15 +162,30 @@ class Editor(object):
             self.selected_wave = None
             self.state = Editor.State.tile
         elif key == sdl2.SDLK_w:
-            self.selected_wave = None
             self.state = Editor.State.wave
         elif key == sdl2.SDLK_b:
             self.selected_wave = None
             self.state = Editor.State.base
         elif key == sdl2.SDLK_c:
             self.next_colour()
-        elif key == sdl2.SDLK_e:
-            self.next_enemy()
+        elif key == sdl2.SDLK_EQUALS:
+            self._next_enemy()
+            self._inc_enemy_count()
+            self._inc_start_time()
+            self._inc_spawn_gap()
+        elif key == sdl2.SDLK_MINUS:
+            self._prev_enemy()
+            self._dec_enemy_count()
+            self._dec_start_time()
+            self._dec_spawn_gap()
+        elif key == sdl2.SDLK_1:
+            self.wave_edit_mode = Editor.WaveEditMode.enemy_type
+        elif key == sdl2.SDLK_2:
+            self.wave_edit_mode = Editor.WaveEditMode.enemy_count
+        elif key == sdl2.SDLK_3:
+            self.wave_edit_mode = Editor.WaveEditMode.start_time
+        elif key == sdl2.SDLK_4:
+            self.wave_edit_mode = Editor.WaveEditMode.spawn_gap
 
     def on_text(self, c):
         """Handle text input."""
@@ -227,9 +274,66 @@ class Editor(object):
         else:
             self._colour_index += 1
 
-    def next_enemy(self):
-        """Cycle to the next enenym type."""
-        if self.state == Editor.state.wave and self.selected is not None:
+    def _next_enemy(self):
+        """Cycle to the next enemy type."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.enemy_type and
+                self.selected_wave is not None):
             idx = enemy_types.index(self.selected_wave.enemy_type)
             self.selected_wave.enemy_type = next(
-                itertools.cycle(enemy_types[idx + 1:], enemy_types[:idx + 1]))
+                itertools.cycle(enemy_types[idx + 1:] + enemy_types[:idx + 1]))
+
+    def _prev_enemy(self):
+        """Cycle to the previous enemy type."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.enemy_type and
+                self.selected_wave is not None):
+            types = list(reversed(enemy_types))
+            idx = types.index(self.selected_wave.enemy_type)
+            self.selected_wave.enemy_type = next(
+                itertools.cycle(types[idx + 1:] + types[:idx + 1]))
+
+    def _inc_enemy_count(self):
+        """Increment the selected wave's enemy count."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.enemy_count and
+                self.selected_wave is not None):
+            self.selected_wave.enemy_count += 1
+
+    def _dec_enemy_count(self):
+        """Decrement the selected wave's enemy count."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.enemy_count and
+                self.selected_wave is not None and
+                self.selected_wave.enemy_count > 1):
+            self.selected_wave.enemy_count -= 1
+
+    def _inc_start_time(self):
+        """Increment the selected wave's start time."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.start_time and
+                self.selected_wave is not None):
+            self.selected_wave.start_time += 1
+
+    def _dec_start_time(self):
+        """Decrement the selected wave's start time."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.start_time and
+                self.selected_wave is not None and
+                self.selected_wave.start_time > 0):
+            self.selected_wave.start_time -= 1
+
+    def _inc_spawn_gap(self):
+        """Increment the selected wave's spawn gap."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.spawn_gap and
+                self.selected_wave is not None):
+            self.selected_wave.spawn_gap += 1
+
+    def _dec_spawn_gap(self):
+        """Decrement the selected wave's spawn gap."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.spawn_gap and
+                self.selected_wave is not None and
+                self.selected_wave.spawn_gap > 1):
+            self.selected_wave.spawn_gap -= 1
