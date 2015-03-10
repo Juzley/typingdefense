@@ -385,6 +385,7 @@ class Level(object):
         """Move from build into play state."""
         if self.state == Level.State.build:
             self._build_paths()
+            self._hud.animate_defend_phase_start()
             self.state = Level.State.defend
             self._phase += 1
 
@@ -414,6 +415,7 @@ class Level(object):
 
             # Check if the current phase is finished.
             if not active_waves and len(self.enemies) == 0:
+                self._hud.animate_defend_phase_end()
                 self.state = Level.State.build
                 # TODO: Check if we've finished the last phase.
 

@@ -59,6 +59,20 @@ class ShaderInstance(object):
             GL.glUseProgram(0)
 
     def __init__(self, app, vertex_shader, fragment_shader, uniforms):
+        """Initialize a ShaderInstance instance.
+
+        Arguments:
+        app: The application instance.
+
+        vertex_shader: Filename of the vertex shader part of the program.
+
+        fragment_shader: Filename of the fragment shader part of the program.
+
+        uniforms: Array of uniform variables in the shader. Each element of
+            the array contains a 3-tuple containing uniform info: the name
+            of the uniform, the type of the uniform, and the value to set
+            for the uniform (which can be changed later).
+        """
         self._program = app.resources.load_shader_program(vertex_shader,
                                                           fragment_shader)
         self._uniforms = {}
