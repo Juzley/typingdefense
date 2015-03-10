@@ -60,15 +60,22 @@ class _EditorHud(object):
         self._colourbutton = _ColourButton(app, Vector(10, 10))
 
         font = app.resources.load_font('menufont.fnt')
-        self._enemy_type_text = Text2D(app, font, '', 0, 0, 32)
-        self._enemy_count_text = Text2D(app, font, '', 0, 32, 32)
-        self._start_time_text = Text2D(app, font, '', 0, 64, 32)
-        self._spawn_gap_text = Text2D(app, font, '', 0, 96, 32)
+        self._enemy_type_text = Text2D(app, font, '', 0, 0, 24)
+        self._enemy_count_text = Text2D(app, font, '', 0, 24, 24)
+        self._start_time_text = Text2D(app, font, '', 0, 48, 24)
+        self._spawn_gap_text = Text2D(app, font, '', 0, 72, 24)
+        self._phase_text = Text2D(app, font, '', 0, app.window_height - 24, 24)
 
     def draw(self):
         """Draw the HUD."""
         if self._editor.state == Editor.State.tile:
             self._colourbutton.draw(self._editor.colour)
+
+        if self._editor.state == Editor.State.wave:
+            phase_str = 'Phase: {}'.format(self._editor.phase)
+            if self._editor.wave_edit_mode == Editor.WaveEditMode.phase:
+                phase_str += ' +/-'
+            self._phase_text.draw(phase_str)
 
         if self._editor.selected_wave is not None:
             enemy_type_str = self._editor.selected_wave.enemy_type.__name__
@@ -112,6 +119,7 @@ class Editor(object):
         enemy_count = 2
         start_time = 3
         spawn_gap = 4
+        phase = 5
 
     def __init__(self, app, level):
         self.state = Editor.State.tile
@@ -130,6 +138,7 @@ class Editor(object):
         self._hud = _EditorHud(app, self)
         self.selected_wave = None
         self.enemy_type = enemy_types[0]
+        self.phase = 0
 
     def draw(self):
         """Draw the level editor screen."""
@@ -137,12 +146,10 @@ class Editor(object):
 
         for _, tile in numpy.ndenumerate(self._level.tiles):
             if tile:
-                # TODO: Hardcoded phase here
-                phase = 0
-                draw_faces = (phase in tile.waves or
+                draw_faces = (self.phase in tile.waves or
                               self.state != Editor.State.wave)
-                if (phase in tile.waves and
-                        self.selected_wave is tile.waves[phase]):
+                if (self.phase in tile.waves and
+                        self.selected_wave is tile.waves[self.phase]):
                     tile.draw(faces=draw_faces, face_colour=Colour.from_red())
                 else:
                     tile.draw(faces=draw_faces)
@@ -173,11 +180,13 @@ class Editor(object):
             self._inc_enemy_count()
             self._inc_start_time()
             self._inc_spawn_gap()
+            self._inc_phase()
         elif key == sdl2.SDLK_MINUS:
             self._prev_enemy()
             self._dec_enemy_count()
             self._dec_start_time()
             self._dec_spawn_gap()
+            self._dec_phase()
         elif key == sdl2.SDLK_1:
             self.wave_edit_mode = Editor.WaveEditMode.enemy_type
         elif key == sdl2.SDLK_2:
@@ -186,6 +195,8 @@ class Editor(object):
             self.wave_edit_mode = Editor.WaveEditMode.start_time
         elif key == sdl2.SDLK_4:
             self.wave_edit_mode = Editor.WaveEditMode.spawn_gap
+        elif key == sdl2.SDLK_5:
+            self.wave_edit_mode = Editor.WaveEditMode.phase
 
     def on_text(self, c):
         """Handle text input."""
@@ -222,28 +233,26 @@ class Editor(object):
         add = (button == sdl2.SDL_BUTTON_LEFT)
         tile = self._level.screen_coords_to_tile(Vector(x, y))
 
-        # TODO: Hardcoded phase
-        phase = 0
         if add and tile:
-            if phase not in tile.waves:
+            if self.phase not in tile.waves:
                 wave = Wave(self._app, self._level, tile,
                             enemy_type=self.enemy_type)
 
                 # Extend the wave list if it is not long enough.
-                self._level.waves += [[]] * (phase + 1 -
+                self._level.waves += [[]] * (self.phase + 1 -
                                              len(self._level.waves))
-                self._level.waves[phase].append(wave)
-                tile.waves[phase] = wave
+                self._level.waves[self.phase].append(wave)
+                tile.waves[self.phase] = wave
 
                 self.selected_wave = wave
             else:
-                self.selected_wave = tile.waves[phase]
+                self.selected_wave = tile.waves[self.phase]
 
-        if not add and tile and phase in tile.waves:
-            wave = tile.waves[phase]
+        if not add and tile and self.phase in tile.waves:
+            wave = tile.waves[self.phase]
 
-            self._level.waves[phase].remove(wave)
-            del(tile.waves[phase])
+            self._level.waves[self.phase].remove(wave)
+            del(tile.waves[self.phase])
 
     def _handle_base_state_click(self, x, y, button):
         """Handle a click in base-editing state."""
@@ -337,3 +346,20 @@ class Editor(object):
                 self.selected_wave is not None and
                 self.selected_wave.spawn_gap > 1):
             self.selected_wave.spawn_gap -= 1
+
+    def _inc_phase(self):
+        """Increment the wave phase."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.phase and
+                len(self._level.waves) > self.phase and
+                len(self._level.waves[self.phase]) > 0):
+            self.selected_wave = None
+            self.phase += 1
+
+    def _dec_phase(self):
+        """Decrement the wave phase."""
+        if (self.state == Editor.State.wave and
+                self.wave_edit_mode == Editor.WaveEditMode.phase and
+                self.phase > 0):
+            self.selected_wave = None
+            self.phase -= 1
