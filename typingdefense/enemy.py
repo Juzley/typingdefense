@@ -131,8 +131,8 @@ class _BaseEnemy(object):
                         (self._move_end - self._move_start))
             self.origin = self._start_pos + ((self._end_pos - self._start_pos) *
                                              progress)
-            self.origin.z += _BaseEnemy._JUMP_HEIGHT * math.sin(progress *
-                                                                math.pi)
+            self.origin.z += (_BaseEnemy._JUMP_HEIGHT *
+                              progress * (1 - progress) * 4)
 
         if timer.time >= self._move_end:
             if self.next_tile:
