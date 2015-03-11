@@ -62,6 +62,7 @@ class MoneyTower(Tower):
     _COOLDOWN = 6
     _COLOUR = Colour(0.5, 0.5, 0.7)
     _VALUE_INCREASE = 10
+
     def __init__(self, app, level, tile):
         super().__init__(app, level, tile, MoneyTower._COLOUR)
         self._level = level
@@ -79,4 +80,5 @@ class MoneyTower(Tower):
 
 # Tower ideas:
 # Weaken tower (removes letters or words/phrases for multi-phrase enemies)
+# Knockback tower (moves things backwards)
 # Upgraded towers?

@@ -4,10 +4,10 @@ import sdl2.ext
 import ctypes
 import collections
 import os
+import typingdefense.util as util
 from OpenGL import GL
 from OpenGL.GL import shaders
-
-# TODO: contextmanagers?
+from contextlib import contextmanager
 
 
 class Font(object):
@@ -50,9 +50,11 @@ class Font(object):
                     int.from_bytes(f.read(4), byteorder='little'))
                 c = f.read(1).decode()
 
+    @contextmanager
     def bind(self):
         """Bind the texture for a font."""
-        self._texture.bind()
+        with self._texture.bind():
+            yield
 
     def char_width(self, c, h):
         """Return the width, in pixels, for a given character."""
@@ -96,20 +98,24 @@ class Texture(object):
             pixel_format = GL.GL_RGB
 
         self._id = GL.glGenTextures(1)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self._id)
-        GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, image.w, image.h, 0,
-                        pixel_format, GL.GL_UNSIGNED_BYTE,
-                        ctypes.c_void_p(image.pixels))
-        GL.glTexParameterf(GL.GL_TEXTURE_2D,
-                           GL.GL_TEXTURE_MIN_FILTER,
-                           GL.GL_LINEAR)
-        GL.glTexParameterf(GL.GL_TEXTURE_2D,
-                           GL.GL_TEXTURE_MAG_FILTER,
-                           GL.GL_LINEAR)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        with self.bind():
+            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, image.w, image.h,
+                            0, pixel_format, GL.GL_UNSIGNED_BYTE,
+                            ctypes.c_void_p(image.pixels))
+            GL.glTexParameterf(GL.GL_TEXTURE_2D,
+                            GL.GL_TEXTURE_MIN_FILTER,
+                            GL.GL_LINEAR)
+            GL.glTexParameterf(GL.GL_TEXTURE_2D,
+                            GL.GL_TEXTURE_MAG_FILTER,
+                            GL.GL_LINEAR)
 
+    @contextmanager
     def bind(self):
         GL.glBindTexture(GL.GL_TEXTURE_2D, self._id)
+        try:
+            yield
+        finally:
+            GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
 
     @property
     def width(self):
@@ -144,6 +150,7 @@ class ShaderProgram(object):
 
     def use(self):
         GL.glUseProgram(self.program)
+        return util.OptionalContextManager(lambda: GL.glUseProgram(0))
 
     def uniform(self, name):
         self._lookup_uniform(name)

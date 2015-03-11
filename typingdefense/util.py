@@ -4,6 +4,17 @@ import math
 import numpy
 
 
+class OptionalContextManager(object):
+    def __init__(self, exitfunc):
+        self._exitfunc = exitfunc
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, ex_type, ex_value, traceback):
+        self._exitfunc()
+
+
 class Transform(object):
     def __init__(self, translate=None):
         if translate:

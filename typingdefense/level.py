@@ -133,9 +133,8 @@ class Tile(object):
              outline_colour=None, face_colour=None):
         """Draw the tile."""
         with self._shader.use(download_uniforms=False):
+            self._shader.set_uniform('transMatrix')
             if faces:
-                self._shader.set_uniform('transMatrix')
-
                 if face_colour is None:
                     self._shader.set_uniform('colourIn', self._face_colour)
                 else:
@@ -165,54 +164,20 @@ class Base(object):
     START_HEALTH = 100
 
     def __init__(self, app, cam, tile, origin, z):
-        self._cam = cam
         self.health = Base.START_HEALTH
         self.tile = tile
 
-        top_verts, mid_verts, bottom_verts = ([], [], [])
-        for i in range(6):
-            px = origin.x + math.sin((2 * math.pi / 6) * i)
-            py = origin.y + Tile.SIZE * math.cos((2 * math.pi / 6) * i)
-            top_verts.extend([px, py, z + 1])
-            bottom_verts.extend([px, py, z])
-            mid_verts.extend([px, py, z, px, py, z + 1])
-
-        # Put all the points into the same vertex buffer: top, bottom then mid.
-        verts = numpy.array(top_verts + bottom_verts + mid_verts, numpy.float32)
-
-        self._vao = GL.glGenVertexArrays(1)
-        self._vbo = GL.glGenBuffers(1)
-        GL.glBindVertexArray(self._vao)
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self._vbo)
-        GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
-                        GL.GL_STATIC_DRAW)
-        GL.glEnableVertexAttribArray(0)
-        GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
-        GL.glBindVertexArray(0)
-
-        self._shader = app.resources.load_shader_program('level.vs',
-                                                         'level.fs')
-        self._transmatrix_uniform = self._shader.uniform('transMatrix')
-        self._colour_uniform = self._shader.uniform('colourIn')
+        self._shader = glutils.ShaderInstance(
+            app, 'level.vs', 'level.fs',
+            [('transMatrix', GL.GL_FLOAT_MAT4, cam.trans_matrix_as_array()),
+             ('colourIn', GL.GL_FLOAT_VEC4, [1, 0, 0, 1])])
+        self._hex = glutils.Hex(Vector(tile.x, tile.y, 0),
+                                Tile.SIZE * 0.8, Tile.DEPTH, 2)
 
     def draw(self):
         """Draw the base."""
-        self._shader.use()
-        GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
-                              self._cam.trans_matrix_as_array())
-        GL.glUniform4f(self._colour_uniform, 1.0, 0.0, 0.0, 1.0)
-
-        GL.glBindVertexArray(self._vao)
-        GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 6)
-        GL.glLineWidth(3)
-        GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 6)
-        GL.glDrawArrays(GL.GL_LINE_LOOP, 6, 6)
-
-        GL.glDrawArrays(GL.GL_LINES, 12, 12)
-        GL.glLineWidth(1)
-        GL.glBindVertexArray(0)
-
-        GL.glUseProgram(0)
+        with self._shader.use():
+            self._hex.draw()
 
     def damage(self, dmg):
         self.health -= dmg

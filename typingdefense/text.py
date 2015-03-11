@@ -78,13 +78,13 @@ class Text(object):
                 GL.glEnableVertexAttribArray(1)
                 GL.glVertexAttribPointer(1, 2, GL.GL_FLOAT, GL.GL_FALSE, 16,
                                          ctypes.c_void_p(8))
-                self._font.bind()
 
     def draw(self, text=None):
         """Draw the text."""
-        if text is not None:
+        if text is not None and text != self._text:
             self.text = text
-        with self._vao.bind():
+
+        with self._vao.bind(), self._font.bind():
             for i in range(len(self._text)):
                 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, i * 4, 4)
 
@@ -93,18 +93,13 @@ class Text2D(Text):
     """2D Text, used for HUD drawing."""
     def __init__(self, app, font, text, x, y, height, align=Text.Align.left):
         super().__init__(font, text, x, y, height, align)
-
-        self._app = app
-        self._shader = app.resources.load_shader_program('ortho.vs',
-                                                         'texture.fs')
-        self._screen_uniform = self._shader.uniform('screenDimensions')
-        self._texunit_uniform = self._shader.uniform('texUnit')
+        self._shader = glutils.ShaderInstance(
+            app, 'ortho.vs', 'texture.fs',
+            [('screenDimensions', GL.GL_FLOAT_VEC2,
+              [app.window_width, app.window_height]),
+             ('texUnit', GL.GL_INT, 0)])
 
     def draw(self, text=None):
         """Draw the text."""
-        self._shader.use()
-        GL.glUniform2f(self._screen_uniform,
-                       self._app.window_width, self._app.window_height)
-        GL.glUniform1i(self._texunit_uniform, 0)
-        super().draw(text)
-        GL.glUseProgram(0)
+        with self._shader.use():
+            super().draw(text)

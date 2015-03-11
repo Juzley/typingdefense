@@ -1,6 +1,7 @@
 """Module for managing in-game phrases."""
-from typingdefense.text import Text
 from OpenGL import GL
+from typingdefense.text import Text
+import typingdefense.glutils as glutils
 
 
 class PhraseText(Text):
@@ -12,36 +13,27 @@ class PhraseText(Text):
                  align=Text.Align.left):
         super().__init__(font, text, x, y, height, align)
 
-        self._app = app
-        self._cam = cam
-        # TODO: Use ShaderInstance
-        self._shader = app.resources.load_shader_program('phrase_text.vs',
-                                                         'phrase_text.fs')
-        self._transmatrix_uniform = self._shader.uniform('transMatrix')
-        self._origin_uniform = self._shader.uniform('origin')
-        self._screen_uniform = self._shader.uniform('screenDimensions')
-        self._texunit_uniform = self._shader.uniform('texUnit')
-        self._colour_uniform = self._shader.uniform('inColour')
+        self._shader = glutils.ShaderInstance(
+            app, 'phrase_text.vs', 'phrase_text.fs',
+            [('transMatrix', GL.GL_FLOAT_MAT4, cam.trans_matrix_as_array()),
+             ('origin', GL.GL_FLOAT_VEC3, None),
+             ('screenDimensions', GL.GL_FLOAT_VEC2,
+              [app.window_width, app.window_height]),
+             ('texUnit', GL.GL_INT, 0),
+             ('inColour', GL.GL_FLOAT_VEC3, [1, 1, 1])])
 
     def draw(self, x, y, z, typedchars):
         """Draw the text."""
-        self._shader.use()
-        GL.glUniformMatrix4fv(self._transmatrix_uniform, 1, GL.GL_TRUE,
-                              self._cam.trans_matrix_as_array())
-        GL.glUniform3f(self._origin_uniform, x, y, z)
-        GL.glUniform2f(self._screen_uniform,
-                       self._app.window_width, self._app.window_height)
-        GL.glUniform1i(self._texunit_uniform, 0)
+        self._shader.set_uniform('origin', [x, y, z], download=False)
 
         GL.glDisable(GL.GL_DEPTH_TEST)
-        with self._vao.bind():
-            GL.glUniform3f(self._colour_uniform, 1, 0, 0)
+        with self._shader.use(), self._vao.bind(), self._font.bind():
+            self._shader.set_uniform('inColour', [1, 0, 0])
             for i in range(len(self._text)):
                 if i == typedchars:
-                    GL.glUniform3f(self._colour_uniform, 1, 1, 1)
+                    self._shader.set_uniform('inColour', [1, 1, 1])
                 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, i * 4, 4)
         GL.glEnable(GL.GL_DEPTH_TEST)
-        GL.glUseProgram(0)
 
 
 class Phrase(object):

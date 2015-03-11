@@ -1,6 +1,7 @@
 """Various OpenGL utility classes."""
 import math
 import numpy
+import typingdefense.util as util
 from OpenGL import GL
 from contextlib import contextmanager
 
@@ -42,22 +43,13 @@ class VertexBuffer(object):
         pass
 
     def bind(self):
-        """Bind the vertex buffer.
-
-        This is not a context manager as we often want to leave the buffer
-        bound under a VAO.
-        """
+        """Bind the vertex buffer."""
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self._id)
+        return util.OptionalContextManager(
+            lambda: GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0))
 
 
 class ShaderInstance(object):
-    class _CtxMgr(object):
-        def __enter__(self):
-            pass
-
-        def __exit__(self, ex_type, ex_value, traceback):
-            GL.glUseProgram(0)
-
     def __init__(self, app, vertex_shader, fragment_shader, uniforms):
         """Initialize a ShaderInstance instance.
 
@@ -86,8 +78,12 @@ class ShaderInstance(object):
         """Download a uniform value to the shader."""
         uniform, gl_type, value = info
 
-        if gl_type == GL.GL_FLOAT_VEC2:
+        if gl_type == GL.GL_INT:
+            GL.glUniform1i(uniform, value)
+        elif gl_type == GL.GL_FLOAT_VEC2:
             GL.glUniform2f(uniform, value[0], value[1])
+        elif gl_type == GL.GL_FLOAT_VEC3:
+            GL.glUniform3f(uniform, value[0], value[1], value[2])
         elif gl_type == GL.GL_FLOAT_VEC4:
             GL.glUniform4f(uniform, value[0], value[1], value[2], value[3])
         elif gl_type == GL.GL_FLOAT_MAT4:
@@ -110,7 +106,7 @@ class ShaderInstance(object):
         if download_uniforms:
             for uniform_info in self._uniforms.values():
                 self._dl_uniform(uniform_info)
-        return ShaderInstance._CtxMgr()
+        return util.OptionalContextManager(lambda: GL.glUseProgram(0))
 
 
 class PickingTexture(object):
