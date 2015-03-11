@@ -2,12 +2,12 @@
 import sys
 import math
 import numpy
-from OpenGL import GL
-from .phrase import Phrase
-from .vector import Vector
-from .glutils import ShaderInstance, Hex
-from .util import Transform, Colour
-from .phrasebook import PhraseBook
+import OpenGL.GL as GL
+import typingdefense.phrase as phrase
+import typingdefense.phrasebook as phrasebook
+import typingdefense.util as util
+import typingdefense.glutils as glutils
+import typingdefense.vector as vector
 
 
 # List of enemy types
@@ -27,7 +27,8 @@ class _BaseEnemy(object):
     _SLOW_FACTOR = 1.5
 
     def __init__(self, app, level, tile, speed, move_pause, value, damage,
-                 colour, health=1, words=1, wordlength=PhraseBook.SHORT_PHRASE):
+                 colour, health=1, words=1,
+                 wordlength=phrasebook.PhraseBook.SHORT_PHRASE):
         self._app = app
         self._level = level
         self._tile = tile
@@ -38,7 +39,7 @@ class _BaseEnemy(object):
         self.phrase = None
 
         # Movement variables
-        self.origin = Vector(tile.x, tile.y, tile.top)
+        self.origin = vector.Vector(tile.x, tile.y, tile.top)
         self.prev_tile = None
         self.current_tile = tile
         self.next_tile = tile.path_next
@@ -50,11 +51,11 @@ class _BaseEnemy(object):
         self._move_end = 0
 
         # Graphics variables
-        self._shader = ShaderInstance(
+        self._shader = glutils.ShaderInstance(
             app, 'level.vs', 'level.fs',
             [('transMatrix', GL.GL_FLOAT_MAT4, None),
              ('colourIn', GL.GL_FLOAT_VEC4, colour)])
-        self._hex = Hex(Vector(0, 0, 0), 0.5, 1)
+        self._hex = glutils.Hex(vector.Vector(0, 0, 0), 0.5, 1)
 
         self.health = health
         self.damage = damage
@@ -83,26 +84,26 @@ class _BaseEnemy(object):
         self.unlink = True
 
     def _setup_phrase(self):
-        self.phrase = Phrase(self._app, self._level.cam,
-                             self._level.phrases.get_phrase(self._wordlength,
-                                                            self._words))
+        self.phrase = phrase.Phrase(
+            self._app, self._level.cam,
+            self._level.phrases.get_phrase(self._wordlength, self._words))
 
     def _setup_move(self, timer):
         if self.next_tile:
-            self._start_pos = Vector(self.current_tile.x,
+            self._start_pos = vector.Vector(self.current_tile.x,
                                      self.current_tile.y,
                                      self.current_tile.top)
-            self._end_pos = Vector(self.next_tile.x,
-                                   self.next_tile.y,
-                                   self.next_tile.top)
+            self._end_pos = vector.Vector(self.next_tile.x,
+                                          self.next_tile.y,
+                                          self.next_tile.top)
             distance = (self._end_pos - self._start_pos).magnitude
 
             self._move_start = timer.time + self._scaled_pause()
             self._move_end = self._move_start + distance / self._scaled_speed()
 
     def draw(self):
-        coords = Vector(self.origin.x, self.origin.y, self.origin.z)
-        t = Transform(coords)
+        coords = vector.Vector(self.origin.x, self.origin.y, self.origin.z)
+        t = util.Transform(coords)
         m = self._level.cam.trans_matrix * t.matrix
         self._shader.set_uniform('transMatrix',
                                  numpy.asarray(m).reshape(-1),
@@ -161,7 +162,7 @@ class BasicEnemy(_BaseEnemy, metaclass=_EnemyMeta):
                          move_pause=BasicEnemy._MOVE_PAUSE,
                          value=BasicEnemy._VALUE,
                          damage=BasicEnemy._DAMAGE,
-                         colour=Colour.from_red())
+                         colour=util.Colour.from_red())
 
 class AccelEnemy(_BaseEnemy, metaclass=_EnemyMeta):
     pass

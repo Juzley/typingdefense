@@ -8,12 +8,12 @@ from collections import deque
 from enum import Enum, unique
 from OpenGL import GL
 import typingdefense.glutils as glutils
-from .camera import Camera
-from .vector import Vector
-from .enemy import Wave
-from .util import Timer, Colour
-from .hud import Hud
-from .phrasebook import PhraseBook
+import typingdefense.camera as camera
+import typingdefense.vector as vector
+import typingdefense.enemy as enemy
+import typingdefense.util as util
+import typingdefense.hud as hud
+import typingdefense.phrasebook as phrasebook
 
 
 def _cube_round(fc):
@@ -33,7 +33,7 @@ def _cube_round(fc):
     else:
         rz = -rx - ry
 
-    return Vector(rx, ry, rz)
+    return vector.Vector(rx, ry, rz)
 
 
 def _hex_round(fh):
@@ -43,12 +43,12 @@ def _hex_round(fh):
 
 def _hex_to_cube(h):
     """Convert axial-format hex coordinates to cube-format."""
-    return Vector(h.q, -h.q - h.r, h.r)
+    return vector.Vector(h.q, -h.q - h.r, h.r)
 
 
 def _cube_to_hex(c):
     """Convert cube-format hex coordinates to hex."""
-    return Vector(c.x, c.z)
+    return vector.Vector(c.x, c.z)
 
 
 class Tile(object):
@@ -77,7 +77,7 @@ class Tile(object):
             app, 'level.vs', 'level.fs',
             [('transMatrix', GL.GL_FLOAT_MAT4, cam.trans_matrix_as_array()),
              ('colourIn', GL.GL_FLOAT_VEC4, None)])
-        self._hex = glutils.Hex(Vector(self.x, self.y, 0),
+        self._hex = glutils.Hex(vector.Vector(self.x, self.y, 0),
                                 Tile.SIZE, Tile.DEPTH, height)
 
         self._outline_colour = colour
@@ -122,7 +122,7 @@ class Tile(object):
         Note that this is a 2D conversion only."""
         q = (world_coords.x * math.sqrt(3) / 3 - world_coords.y / 3) / Tile.SIZE
         r = (world_coords.y * 2 / 3) / Tile.SIZE
-        return _hex_round(Vector(q, r))
+        return _hex_round(vector.Vector(q, r))
 
     @property
     def empty(self):
@@ -171,7 +171,7 @@ class Base(object):
             app, 'level.vs', 'level.fs',
             [('transMatrix', GL.GL_FLOAT_MAT4, cam.trans_matrix_as_array()),
              ('colourIn', GL.GL_FLOAT_VEC4, [1, 0, 0, 1])])
-        self._hex = glutils.Hex(Vector(tile.x, tile.y, 0),
+        self._hex = glutils.Hex(vector.Vector(tile.x, tile.y, 0),
                                 Tile.SIZE * 0.8, Tile.DEPTH, 2)
 
     def draw(self):
@@ -195,13 +195,13 @@ class Level(object):
 
     def __init__(self, app, game):
         self._app = app
-        self.cam = Camera(
+        self.cam = camera.Camera(
             origin=[0, -30, 60], target=[0, 0, 0], up=[0, 1, 0], fov=50,
             screen_width=app.window_width, screen_height=app.window_height,
             near=0.1, far=1000)
         self._vao = GL.glGenVertexArrays(1)
         self._vbo = GL.glGenBuffers(1)
-        self.phrases = PhraseBook('resources/phrases/all.phr')
+        self.phrases = phrasebook.PhraseBook('resources/phrases/all.phr')
 
         self._shader = app.resources.load_shader_program('level.vs',
                                                          'level.fs')
@@ -216,7 +216,7 @@ class Level(object):
              ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
 
         # Level state
-        self.timer = Timer()
+        self.timer = util.Timer()
         self.money = 0
         self.state = Level.State.build
         self._target = None
@@ -233,12 +233,12 @@ class Level(object):
         self.base = None
         self.load()
 
-        self._hud = Hud(app, self)
+        self._hud = hud.Hud(app, self)
 
     def load(self):
         """Load the level."""
-        self._min_coords = Vector(-100, -100)
-        self._max_coords = Vector(100, 100)
+        self._min_coords = vector.Vector(-100, -100)
+        self._max_coords = vector.Vector(100, 100)
 
         width = self._max_coords.x - self._min_coords.x + 1
         height = self._max_coords.y - self._min_coords.y + 1
@@ -248,11 +248,11 @@ class Level(object):
                 lvl_info = json.load(f)
                 # Load tiles
                 for tile_info in lvl_info['tiles']:
-                    coords = Vector(tile_info['q'], tile_info['r'])
-                    colour = Colour(tile_info['colour']['r'],
-                                    tile_info['colour']['g'],
-                                    tile_info['colour']['b'],
-                                    tile_info['colour']['a'])
+                    coords = vector.Vector(tile_info['q'], tile_info['r'])
+                    colour = util.Colour(tile_info['colour']['r'],
+                                         tile_info['colour']['g'],
+                                         tile_info['colour']['b'],
+                                         tile_info['colour']['a'])
                     idx = self.tile_coords_to_array_index(coords)
                     self.tiles[idx.y, idx.x] = Tile(self._app,
                                                     self.cam,
@@ -266,13 +266,15 @@ class Level(object):
                     for phase_info in lvl_info['waves']:
                         waves = []
                         for wave_info in phase_info:
-                            coords = Vector(wave_info['q'], wave_info['r'])
+                            coords = vector.Vector(wave_info['q'],
+                                                   wave_info['r'])
                             tile = self.lookup_tile(coords)
-                            wave = Wave(self._app, self, tile,
-                                        enemy_count=wave_info['enemy_count'],
-                                        start_time=wave_info['start_time'],
-                                        spawn_gap=wave_info['spawn_gap'],
-                                        enemy_type=wave_info['enemy_type'])
+                            wave = enemy.Wave(
+                                self._app, self, tile,
+                                enemy_count=wave_info['enemy_count'],
+                                start_time=wave_info['start_time'],
+                                spawn_gap=wave_info['spawn_gap'],
+                                enemy_type=wave_info['enemy_type'])
                             tile.waves[phase_idx] = wave
                             waves.append(wave)
                         self.waves.append(waves)
@@ -281,8 +283,9 @@ class Level(object):
         except FileNotFoundError:
             pass
 
-        tile = self.lookup_tile(Vector(0, 0))
-        self.base = Base(self._app, self.cam, tile, Vector(0, 0), Tile.HEIGHT)
+        tile = self.lookup_tile(vector.Vector(0, 0))
+        self.base = Base(self._app, self.cam, tile, vector.Vector(0, 0),
+                         Tile.HEIGHT)
 
         self.money = 500
 
@@ -391,7 +394,7 @@ class Level(object):
             hit_hud = self._hud.on_click(x, y)
 
             if not hit_hud:
-                tile = self.screen_coords_to_tile(Vector(x, y))
+                tile = self.screen_coords_to_tile(vector.Vector(x, y))
                 if tile and tile.empty:
                     # TODO: Check if the tower ends up leaving no route to the
                     # base
@@ -419,8 +422,8 @@ class Level(object):
 
     def tile_coords_to_array_index(self, coords):
         """Work out the array slot for a given set of axial tile coords."""
-        return Vector(coords.q - self._min_coords.q,
-                      coords.r - self._min_coords.r)
+        return vector.Vector(coords.q - self._min_coords.q,
+                             coords.r - self._min_coords.r)
 
     def lookup_tile(self, coords):
         """Look up a tile from its (q, r) coordinates."""
@@ -438,7 +441,7 @@ class Level(object):
             return None
 
         # The q and r coordinates are stored in the r and g values, respectively
-        return self.lookup_tile(Vector(pixel_info[0], pixel_info[1]))
+        return self.lookup_tile(vector.Vector(pixel_info[0], pixel_info[1]))
 
     def screen_coords_to_tile_coords(self, coords):
         """Convert screen coordinates to tile coordinates.
@@ -466,7 +469,7 @@ class Level(object):
         dirs = [(+1, 0), (+1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
         neighbours = []
         for d in dirs:
-            neighbour_coords = Vector(tile.q + d[0], tile.r + d[1])
+            neighbour_coords = vector.Vector(tile.q + d[0], tile.r + d[1])
             neighbour = self.lookup_tile(neighbour_coords)
             if neighbour:
                 neighbours.append(neighbour)
@@ -481,7 +484,7 @@ class Level(object):
 
         # TODO: Start a 0,0 for now, but eventually will have to work out where
         # the base is and start there.
-        start = self.lookup_tile(Vector(0, 0))
+        start = self.lookup_tile(vector.Vector(0, 0))
         if not start:
             return
 

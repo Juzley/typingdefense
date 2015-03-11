@@ -1,15 +1,15 @@
 """Level editor module."""
+from enum import Enum, unique
 import sdl2
 import numpy
 import itertools
-from OpenGL import GL
-from enum import Enum, unique
-from .glutils import VertexArray, VertexBuffer, ShaderInstance
-from .util import Colour
-from .enemy import Wave, enemy_types
-from .vector import Vector
-from .level import Tile
-from .text import Text2D
+import OpenGL.GL as GL
+import typingdefense.vector as vector
+import typingdefense.glutils as glutils
+import typingdefense.util as util
+import typingdefense.enemy as enemy
+import typingdefense.text as text
+import typingdefense.level
 
 
 class _ColourButton(object):
@@ -17,14 +17,14 @@ class _ColourButton(object):
     SIZE = 32
 
     def __init__(self, app, coords):
-        self._shader = ShaderInstance(
+        self._shader = glutils.ShaderInstance(
             app, 'ortho.vs', 'level.fs',
             [('screenDimensions', GL.GL_FLOAT_VEC2,
               (app.window_width, app.window_height)),
              ('colourIn', GL.GL_FLOAT_VEC4, [1, 1, 1, 1])])
 
-        self._vao = VertexArray()
-        self._vbo = VertexBuffer()
+        self._vao = glutils.VertexArray()
+        self._vbo = glutils.VertexBuffer()
         self.coords = coords
         data = [coords.x + _ColourButton.SIZE / 2,
                 coords.y - _ColourButton.SIZE / 2,
@@ -47,7 +47,8 @@ class _ColourButton(object):
         """Draw the button."""
         with self._shader.use():
             with self._vao.bind():
-                self._shader.set_uniform('colourIn', Colour.from_white())
+                self._shader.set_uniform('colourIn',
+                                         util.Colour.from_white())
                 GL.glDrawArrays(GL.GL_LINE_LOOP, 0, 4)
                 self._shader.set_uniform('colourIn', colour)
                 GL.glDrawArrays(GL.GL_TRIANGLE_FAN, 0, 4)
@@ -57,14 +58,15 @@ class _EditorHud(object):
     """The HUD of the editor."""
     def __init__(self, app, editor):
         self._editor = editor
-        self._colourbutton = _ColourButton(app, Vector(10, 10))
+        self._colourbutton = _ColourButton(app, vector.Vector(10, 10))
 
         font = app.resources.load_font('menufont.fnt')
-        self._enemy_type_text = Text2D(app, font, '', 0, 0, 24)
-        self._enemy_count_text = Text2D(app, font, '', 0, 24, 24)
-        self._start_time_text = Text2D(app, font, '', 0, 48, 24)
-        self._spawn_gap_text = Text2D(app, font, '', 0, 72, 24)
-        self._phase_text = Text2D(app, font, '', 0, app.window_height - 24, 24)
+        self._enemy_type_text = text.Text2D(app, font, '', 0, 0, 24)
+        self._enemy_count_text = text.Text2D(app, font, '', 0, 24, 24)
+        self._start_time_text = text.Text2D(app, font, '', 0, 48, 24)
+        self._spawn_gap_text = text.Text2D(app, font, '', 0, 72, 24)
+        self._phase_text = text.Text2D(app, font, '', 0, app.window_height - 24,
+                                       24)
 
     def draw(self):
         """Draw the HUD."""
@@ -127,17 +129,17 @@ class Editor(object):
         self._app = app
         self._level = level
 
-        self._colours = [Colour(243/255, 112/255, 82/255),
-                         Colour(251/255, 177/255, 96/255),
-                         Colour(255/255, 218/255, 119/255),
-                         Colour(180/255, 214/255, 111/255),
-                         Colour(29/255, 185/255, 199/255),
-                         Colour(144/255, 167/255, 213/255),
-                         Colour(170/255, 116/255, 177/255)]
+        self._colours = [util.Colour(243/255, 112/255, 82/255),
+                         util.Colour(251/255, 177/255, 96/255),
+                         util.Colour(255/255, 218/255, 119/255),
+                         util.Colour(180/255, 214/255, 111/255),
+                         util.Colour(29/255, 185/255, 199/255),
+                         util.Colour(144/255, 167/255, 213/255),
+                         util.Colour(170/255, 116/255, 177/255)]
         self._colour_index = 0
         self._hud = _EditorHud(app, self)
         self.selected_wave = None
-        self.enemy_type = enemy_types[0]
+        self.enemy_type = enemy.enemy_types[0]
         self.phase = 0
 
     def draw(self):
@@ -150,7 +152,8 @@ class Editor(object):
                               self.state != Editor.State.wave)
                 if (self.phase in tile.waves and
                         self.selected_wave is tile.waves[self.phase]):
-                    tile.draw(faces=draw_faces, face_colour=Colour.from_red())
+                    tile.draw(faces=draw_faces,
+                              face_colour=util.Colour.from_red())
                 else:
                     tile.draw(faces=draw_faces)
 
@@ -205,7 +208,7 @@ class Editor(object):
     def _handle_tile_state_click(self, x, y, button):
         """Handle a click in tile-editing state."""
         add = (button == sdl2.SDL_BUTTON_LEFT)
-        tile = self._level.screen_coords_to_tile(Vector(x, y))
+        tile = self._level.screen_coords_to_tile(vector.Vector(x, y))
 
         if tile:
             tile_coords = tile.coords
@@ -213,30 +216,31 @@ class Editor(object):
             colour = tile.colour
         else:
             tile_coords = self._level.screen_coords_to_tile_coords(
-                Vector(x, y))
+                vector.Vector(x, y))
             height = 1 if add else 0
             colour = self.colour
 
         if self._level.tile_coords_valid(tile_coords):
             index = self._level.tile_coords_to_array_index(tile_coords)
             if height > 0:
-                self._level.tiles[index.y, index.x] = Tile(self._app,
-                                                           self._level.cam,
-                                                           tile_coords,
-                                                           height,
-                                                           colour)
+                self._level.tiles[index.y, index.x] = typingdefense.level.Tile(
+                    self._app,
+                    self._level.cam,
+                    tile_coords,
+                    height,
+                    colour)
             else:
                 self._level.tiles[index.y, index.x] = None
 
     def _handle_wave_state_click(self, x, y, button):
         """Handle a click in wave-editing state."""
         add = (button == sdl2.SDL_BUTTON_LEFT)
-        tile = self._level.screen_coords_to_tile(Vector(x, y))
+        tile = self._level.screen_coords_to_tile(vector.Vector(x, y))
 
         if add and tile:
             if self.phase not in tile.waves:
-                wave = Wave(self._app, self._level, tile,
-                            enemy_type=self.enemy_type)
+                wave = enemy.Wave(self._app, self._level, tile,
+                                  enemy_type=self.enemy_type)
 
                 # Extend the wave list if it is not long enough.
                 self._level.waves += [[]] * (self.phase + 1 -
@@ -288,16 +292,17 @@ class Editor(object):
         if (self.state == Editor.State.wave and
                 self.wave_edit_mode == Editor.WaveEditMode.enemy_type and
                 self.selected_wave is not None):
-            idx = enemy_types.index(self.selected_wave.enemy_type)
+            idx = enemy.enemy_types.index(self.selected_wave.enemy_type)
             self.selected_wave.enemy_type = next(
-                itertools.cycle(enemy_types[idx + 1:] + enemy_types[:idx + 1]))
+                itertools.cycle(enemy.enemy_types[idx + 1:] +
+                                enemy.enemy_types[:idx + 1]))
 
     def _prev_enemy(self):
         """Cycle to the previous enemy type."""
         if (self.state == Editor.State.wave and
                 self.wave_edit_mode == Editor.WaveEditMode.enemy_type and
                 self.selected_wave is not None):
-            types = list(reversed(enemy_types))
+            types = list(reversed(enemy.enemy_types))
             idx = types.index(self.selected_wave.enemy_type)
             self.selected_wave.enemy_type = next(
                 itertools.cycle(types[idx + 1:] + types[:idx + 1]))

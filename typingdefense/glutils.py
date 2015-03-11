@@ -2,7 +2,7 @@
 import math
 import numpy
 import typingdefense.util as util
-from OpenGL import GL
+import OpenGL.GL as GL
 from contextlib import contextmanager
 
 

@@ -1,18 +1,19 @@
 """Module containing the different towers that can be placed by the player."""
 import OpenGL.GL as GL
-from .glutils import Hex, ShaderInstance
-from .vector import Vector
-from .util import Colour
+import typingdefense.glutils as glutils
+import typingdefense.vector as vector
+import typingdefense.util as util
 
 
-class Tower(object):
+class _BaseTower(object):
     def __init__(self, app, level, tile, colour):
-        self._shader = ShaderInstance(
+        self._shader = glutils.ShaderInstance(
             app, 'level.vs', 'level.fs',
             [('transMatrix', GL.GL_FLOAT_MAT4,
               level.cam.trans_matrix_as_array()),
              ('colourIn', GL.GL_FLOAT_VEC4, colour)])
-        self._hex = Hex(Vector(tile.x, tile.y, tile.top), 0.5, 2, stacks=4)
+        self._hex = glutils.Hex(vector.Vector(tile.x, tile.y, tile.top), 0.5, 2,
+                                stacks=4)
 
     def update(self):
         pass
@@ -22,29 +23,29 @@ class Tower(object):
             self._hex.draw()
 
 
-class SlowTower(Tower):
+class SlowTower(_BaseTower):
     COST = 50
-    _COLOUR = Colour(0.7, 0.5, 0.5)
+    _COLOUR = util.Colour(0.7, 0.5, 0.5)
 
     def __init__(self, app, level, tile):
         super().__init__(app, level, tile, SlowTower._COLOUR)
         self._level = level
-        self._coords = Vector(tile.x, tile.y)
+        self._coords = vector.Vector(tile.x, tile.y)
 
         for t in level.tile_neighbours(tile):
             t.slow = True
 
 
-class KillTower(Tower):
+class KillTower(_BaseTower):
     COST = 200
     _COOLDOWN = 10
-    _COLOUR = Colour(0.5, 0.7, 0.5)
+    _COLOUR = util.Colour(0.5, 0.7, 0.5)
 
     def __init__(self, app, level, tile):
         super().__init__(app, level, tile, KillTower._COLOUR)
         self._level = level
         self._tile = tile
-        self._coords = Vector(tile.x, tile.y)
+        self._coords = vector.Vector(tile.x, tile.y)
         self._last_fire = 0
 
     def update(self):
@@ -57,17 +58,17 @@ class KillTower(Tower):
                 self._last_fire = self._level.timer.time
 
 
-class MoneyTower(Tower):
+class MoneyTower(_BaseTower):
     COST = 100
     _COOLDOWN = 6
-    _COLOUR = Colour(0.5, 0.5, 0.7)
+    _COLOUR = util.Colour(0.5, 0.5, 0.7)
     _VALUE_INCREASE = 10
 
     def __init__(self, app, level, tile):
         super().__init__(app, level, tile, MoneyTower._COLOUR)
         self._level = level
         self._tile = tile
-        self._coords = Vector(tile.x, tile.y)
+        self._coords = vector.Vector(tile.x, tile.y)
         self._last_fire = 0
 
     def update(self):

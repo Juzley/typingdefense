@@ -1,7 +1,7 @@
 """Typing Defense - Camera module."""
 import numpy as np
 import math
-from typingdefense.vector import Vector
+import typingdefense.vector as vector
 
 
 class Camera(object):
@@ -66,9 +66,9 @@ class Camera(object):
         world_neartofar = world_far - world_near
         ratio = (world_z - world_near[2, 0]) / world_neartofar[2, 0]
 
-        return Vector(world_near[0, 0] + (world_neartofar[0, 0] * ratio),
-                      world_near[1, 0] + (world_neartofar[1, 0] * ratio),
-                      world_near[2, 0] + (world_neartofar[2, 0] * ratio))
+        return vector.Vector(world_near[0, 0] + (world_neartofar[0, 0] * ratio),
+                             world_near[1, 0] + (world_neartofar[1, 0] * ratio),
+                             world_near[2, 0] + (world_neartofar[2, 0] * ratio))
 
     def trans_matrix_as_array(self):
         return np.asarray(self.trans_matrix).reshape(-1)

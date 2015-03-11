@@ -1,10 +1,11 @@
 """Module for the in-game HUD."""
+from enum import Enum, unique
 import numpy
 import OpenGL.GL as GL
 import typingdefense.tower as tower
-from enum import Enum, unique
-from .text import Text, Text2D
-from .glutils import VertexArray, VertexBuffer, ShaderInstance
+import typingdefense.text as text
+import typingdefense.glutils as glutils
+import typingdefense.level
 
 
 class Button(object):
@@ -12,12 +13,12 @@ class Button(object):
 
     def __init__(self, app, x, y):
         self._app = app
-        self._vao = VertexArray()
-        self._vbo = VertexBuffer()
+        self._vao = glutils.VertexArray()
+        self._vbo = glutils.VertexBuffer()
         self.x = x
         self.y = y
 
-        self._shader = ShaderInstance(
+        self._shader = glutils.ShaderInstance(
             app, 'ortho.vs', 'test.fs',
             [('screenDimensions', GL.GL_FLOAT_VEC2, [app.window_width,
                                                      app.window_height]),
@@ -71,9 +72,9 @@ class Hud(object):
         self._animation_change_time = 0
         self._animation_state = Hud.AnimationState.none
 
-        self._money = Text2D(app, font, str(level.money),
-                             app.window_width / 2, app.window_height - 32, 32,
-                             Text.Align.center)
+        self._money = text.Text2D(app, font, str(level.money),
+                                  app.window_width / 2, app.window_height - 32,
+                                  32, text.Text.Align.center)
 
         self._play_button = Button(app, 20, 20)
         self._slow_tower_button = Button(app, 70, 20)
@@ -92,20 +93,18 @@ class Hud(object):
         # Work out where the build buttons should be.
         translate = [0, 0]
         if self._animation_state == Hud.AnimationState.defend_ending:
-            # The defend phase is ending, move the build buttons onto the screen.
+            # The defend phase is ending, bring the build buttons in.
             ratio = 1 - ((self._level.timer.time -
                           self._animation_change_time) / Hud._ANIMATION_TIME)
             translate[1] = -40 * ratio
         elif self._animation_state == Hud.AnimationState.defend_starting:
-            # The defend phase is starting, move the build buttons off the
-            # screen.
+            # The defend phase is starting, move the build buttons out.
             ratio = ((self._level.timer.time - self._animation_change_time) /
                      Hud._ANIMATION_TIME)
             translate[1] = -40 * ratio
 
-        from .level import Level
         if (self._animation_state != Hud.AnimationState.none or
-                self._level.state == Level.State.build):
+                self._level.state == typingdefense.level.Level.State.build):
             self._play_button.draw(translate)
             self._slow_tower_button.draw(translate)
             self._kill_tower_button.draw(translate)

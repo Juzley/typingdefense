@@ -1,10 +1,10 @@
 import sdl2
 import sdl2.ext
-from OpenGL import GL
-from .menu import Menu
-from .mainmenu import MainMenuScreen
-from .resources import Resources
-from .game import Game
+import OpenGL.GL as GL
+import typingdefense.menu as menu
+import typingdefense.mainmenu as mainmenu
+import typingdefense.game as game
+import typingdefense.resources as resources
 
 
 class App(object):
@@ -12,10 +12,10 @@ class App(object):
         """Initialize the App."""
         sdl2.ext.init()
 
-        self.resources = Resources(resource_path="resources",
-                                   texture_path="textures",
-                                   shader_path="shaders",
-                                   font_path="fonts")
+        self.resources = resources.Resources(resource_path="resources",
+                                             texture_path="textures",
+                                             shader_path="shaders",
+                                             font_path="fonts")
 
         self.window_width = 800
         self.window_height = 600
@@ -26,8 +26,8 @@ class App(object):
         self._gl_context = None
         self._init_gl()
 
-        self._menu = Menu(MainMenuScreen(self))
-        self._game = Game(self)
+        self._menu = menu.Menu(mainmenu.MainMenuScreen(self))
+        self._game = game.Game(self)
 
     def __del__(self):
         """Shut down the App."""

@@ -1,13 +1,13 @@
 """Typing Defense - Game Module"""
 import sdl2
-from typingdefense.level import Level
-from typingdefense.editor import Editor
+import typingdefense.level as level
+import typingdefense.editor as editor
 
 
 class Game(object):
     def __init__(self, app):
         self._app = app
-        self._level = Level(app, self)
+        self._level = level.Level(app, self)
 
     def draw(self):
         self._level.draw()
@@ -20,7 +20,7 @@ class Game(object):
 
     def on_keydown(self, key):
         if key == sdl2.SDLK_F12:
-            self._level = Editor(self._app, self._level)
+            self._level = editor.Editor(self._app, self._level)
 
         self._level.on_keydown(key)
 

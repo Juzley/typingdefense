@@ -4,9 +4,9 @@ import sdl2.ext
 import ctypes
 import collections
 import os
+import OpenGL.GL as GL
+import OpenGL.GL.shaders as shaders
 import typingdefense.util as util
-from OpenGL import GL
-from OpenGL.GL import shaders
 from contextlib import contextmanager
 
 
@@ -103,11 +103,11 @@ class Texture(object):
                             0, pixel_format, GL.GL_UNSIGNED_BYTE,
                             ctypes.c_void_p(image.pixels))
             GL.glTexParameterf(GL.GL_TEXTURE_2D,
-                            GL.GL_TEXTURE_MIN_FILTER,
-                            GL.GL_LINEAR)
+                               GL.GL_TEXTURE_MIN_FILTER,
+                               GL.GL_LINEAR)
             GL.glTexParameterf(GL.GL_TEXTURE_2D,
-                            GL.GL_TEXTURE_MAG_FILTER,
-                            GL.GL_LINEAR)
+                               GL.GL_TEXTURE_MAG_FILTER,
+                               GL.GL_LINEAR)
 
     @contextmanager
     def bind(self):
@@ -136,12 +136,13 @@ class Shader(object):
 
 
 class ShaderProgram(object):
-    def __init__(self, vertex_shader, fragment_shader, uniforms=[]):
+    def __init__(self, vertex_shader, fragment_shader, uniforms=None):
         self.program = shaders.compileProgram(vertex_shader.shader,
                                               fragment_shader.shader)
         self._uniforms = {}
-        for uniform in uniforms:
-            self._lookup_uniform(uniform)
+        if uniforms is not None:
+            for uniform in uniforms:
+                self._lookup_uniform(uniform)
 
     def _lookup_uniform(self, uniform):
         if uniform not in self._uniforms:
