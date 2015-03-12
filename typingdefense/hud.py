@@ -84,8 +84,8 @@ class Hud(object):
         self._fps = text.Text2D(app, font, '', 0, app.window_height - 32, 32)
 
     def draw(self):
-        self._money.draw(str(self._level.money))
         self._fps.draw(str(round(1 / self._level.timer.frametime)))
+        self._money.draw(str(self._level.money))
 
         if (self._animation_state != Hud.AnimationState.none and
                 self._level.timer.time - Hud._ANIMATION_TIME >
