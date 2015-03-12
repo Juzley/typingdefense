@@ -81,9 +81,11 @@ class Hud(object):
         self._kill_tower_button = Button(app, 120, 20)
         self._money_tower_button = Button(app, 170, 20)
 
+        self._fps = text.Text2D(app, font, '', 0, app.window_height - 32, 32)
+
     def draw(self):
-        self._money.text = str(self._level.money)
-        self._money.draw()
+        self._money.draw(str(self._level.money))
+        self._fps.draw(str(round(1 / self._level.timer.frametime)))
 
         if (self._animation_state != Hud.AnimationState.none and
                 self._level.timer.time - Hud._ANIMATION_TIME >

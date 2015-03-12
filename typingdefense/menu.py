@@ -1,6 +1,6 @@
-from OpenGL import GL
 import ctypes
 import numpy
+import OpenGL.GL as GL
 
 
 class MenuItem(object):

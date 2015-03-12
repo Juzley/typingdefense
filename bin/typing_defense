@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from typingdefense.app import App
+import typingdefense.app
 
 if __name__ == "__main__":
-    app = App()
+    app = typingdefense.app.App()
     app.run()

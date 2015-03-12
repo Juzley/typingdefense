@@ -1,7 +1,7 @@
 """The main Typing Defense menu."""
 
-from typingdefense.menu import MenuScreen
+import typingdefense.menu as menu
 
-class MainMenuScreen(MenuScreen):
+class MainMenuScreen(menu.MenuScreen):
     def __init__(self, app):
         super(MainMenuScreen, self).__init__(app, "placeholder.png")

@@ -327,9 +327,10 @@ class Level(object):
             with self._picking_shader.use(download_uniforms=False):
                 GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
                 self._picking_shader.set_uniform('transMatrix')
-                for _, tile in numpy.ndenumerate(self.tiles):
-                    if tile:
-                        tile.picking_draw(self._picking_shader)
+                for tile_list in self.tiles:
+                    for tile in tile_list:
+                        if tile:
+                            tile.picking_draw(self._picking_shader)
 
     def draw(self):
         """Draw the level."""
@@ -337,15 +338,17 @@ class Level(object):
         self.picking_draw()
 
         # Now actually draw the tiles
-        for _, tile in numpy.ndenumerate(self.tiles):
-            if tile:
-                tile.draw()
+        # TODO: An iterate tiles helper?
+        for tile_list in self.tiles:
+            for tile in tile_list:
+                if tile:
+                    tile.draw()
         self.base.draw()
 
         for tower in self._towers:
             tower.draw()
-        for enemy in self.enemies:
-            enemy.draw()
+        for e in self.enemies:
+            e.draw()
 
         self._hud.draw()
 

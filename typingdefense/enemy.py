@@ -29,6 +29,10 @@ class _BaseEnemy(object):
     def __init__(self, app, level, tile, speed, move_pause, value, damage,
                  colour, health=1, words=1,
                  wordlength=phrasebook.PhraseBook.SHORT_PHRASE):
+        # TODO:temp
+        self.prev_time = 0
+        self.prev_origin = vector.Vector(0, 0, 0)
+
         self._app = app
         self._level = level
         self._tile = tile
@@ -91,12 +95,13 @@ class _BaseEnemy(object):
     def _setup_move(self, timer):
         if self.next_tile:
             self._start_pos = vector.Vector(self.current_tile.x,
-                                     self.current_tile.y,
-                                     self.current_tile.top)
+                                            self.current_tile.y,
+                                            self.current_tile.top)
             self._end_pos = vector.Vector(self.next_tile.x,
                                           self.next_tile.y,
                                           self.next_tile.top)
             distance = (self._end_pos - self._start_pos).magnitude
+
 
             self._move_start = timer.time + self._scaled_pause()
             self._move_end = self._move_start + distance / self._scaled_speed()
@@ -132,8 +137,8 @@ class _BaseEnemy(object):
                         (self._move_end - self._move_start))
             self.origin = self._start_pos + ((self._end_pos - self._start_pos) *
                                              progress)
-            self.origin.z += (_BaseEnemy._JUMP_HEIGHT *
-                              progress * (1 - progress) * 4)
+            #self.origin.z += (_BaseEnemy._JUMP_HEIGHT *
+            #                  progress * (1 - progress) * 4)
 
         if timer.time >= self._move_end:
             if self.next_tile:
@@ -148,6 +153,8 @@ class _BaseEnemy(object):
 
                 if self.unlink:
                     self._level.phrases.release_start_letter(self.phrase.start)
+        self.prev_time = timer.time
+        self.prev_origin = self.origin
 
 
 class BasicEnemy(_BaseEnemy, metaclass=_EnemyMeta):
