@@ -232,6 +232,7 @@ class Level(object):
         self.tiles = None
         self.base = None
         self.load()
+        self.picking_draw()
 
         self._hud = hud.Hud(app, self)
 
@@ -334,11 +335,7 @@ class Level(object):
 
     def draw(self):
         """Draw the level."""
-        # Do the picking draw first.
-        self.picking_draw()
-
-        # Now actually draw the tiles
-        # TODO: An iterate tiles helper?
+        # TODO: Move all this drawing to a single mesh.
         for tile_list in self.tiles:
             for tile in tile_list:
                 if tile:
@@ -363,6 +360,7 @@ class Level(object):
     def update(self):
         """Advance the game state."""
         self.timer.update()
+        return
 
         if self.state == Level.State.defend:
             # Update enemies
