@@ -4,6 +4,7 @@ import numpy
 import weakref
 import json
 import copy
+import ctypes
 from collections import deque
 from enum import Enum, unique
 from OpenGL import GL
@@ -80,9 +81,9 @@ class Tile(object):
         self._hex = glutils.Hex(vector.Vector(self.x, self.y, 0),
                                 Tile.SIZE, Tile.DEPTH, height)
 
-        self._outline_colour = colour
-        self._face_colour = copy.copy(self._outline_colour)
-        self._face_colour.s = self._face_colour.s / 2
+        self.outline_colour = colour
+        self.face_colour = copy.copy(self.outline_colour)
+        self.face_colour.s = self.face_colour.s / 2
 
         # Dictionary of waves, keyed by the level phase in which they appear.
         self.waves = {}
@@ -136,16 +137,16 @@ class Tile(object):
             self._shader.set_uniform('transMatrix')
             if faces:
                 if face_colour is None:
-                    self._shader.set_uniform('colourIn', self._face_colour)
+                    self._shader.set_uniform('colourIn', self.face_colour)
                 else:
                     self._shader.set_uniform('colourIn', face_colour)
                 self._hex.draw_faces()
 
             if outline:
                 if outline_colour is None:
-                    self._shader.set_uniform('colourIn', self._outline_colour)
+                    self._shader.set_uniform('colourIn', self.outline_colour)
                 else:
-                    self._shader.set_uniform('colourIn', self._face_colour)
+                    self._shader.set_uniform('colourIn', outline)
                 with glutils.linewidth(2):
                     self._hex.draw_outline()
 
@@ -169,8 +170,7 @@ class Base(object):
 
         self._shader = glutils.ShaderInstance(
             app, 'level.vs', 'level.fs',
-            [('transMatrix', GL.GL_FLOAT_MAT4, cam.trans_matrix_as_array()),
-             ('colourIn', GL.GL_FLOAT_VEC4, [1, 0, 0, 1])])
+            [('transMatrix', GL.GL_FLOAT_MAT4, cam.trans_matrix_as_array())])
         self._hex = glutils.Hex(vector.Vector(tile.x, tile.y, 0),
                                 Tile.SIZE * 0.8, Tile.DEPTH, 2)
 
@@ -199,21 +199,7 @@ class Level(object):
             origin=[0, -30, 60], target=[0, 0, 0], up=[0, 1, 0], fov=50,
             screen_width=app.window_width, screen_height=app.window_height,
             near=0.1, far=1000)
-        self._vao = GL.glGenVertexArrays(1)
-        self._vbo = GL.glGenBuffers(1)
         self.phrases = phrasebook.PhraseBook('resources/phrases/all.phr')
-
-        self._shader = app.resources.load_shader_program('level.vs',
-                                                         'level.fs')
-        self._transmatrix_uniform = self._shader.uniform('transMatrix')
-
-        self._picking_texture = glutils.PickingTexture(app.window_width,
-                                                       app.window_height)
-        self._picking_shader = glutils.ShaderInstance(
-            app, 'level.vs', 'picking.fs',
-            [['transMatrix', GL.GL_FLOAT_MAT4,
-              self.cam.trans_matrix_as_array()],
-             ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
 
         # Level state
         self.timer = util.Timer()
@@ -232,6 +218,23 @@ class Level(object):
         self.tiles = None
         self.base = None
         self.load()
+
+        self._vao = None
+        self._vbo = None
+        self._shader = glutils.ShaderInstance(
+            self._app, 'level2.vs', 'level2.fs',
+            [('transMatrix', GL.GL_FLOAT_MAT4,
+              self.cam.trans_matrix_as_array()),
+             ('colourIn', GL.GL_FLOAT_VEC4, [1, 1, 1, 1])])
+        self._build_vertex_arrays()
+
+        self._picking_texture = glutils.PickingTexture(app.window_width,
+                                                       app.window_height)
+        self._picking_shader = glutils.ShaderInstance(
+            app, 'level.vs', 'picking.fs',
+            [['transMatrix', GL.GL_FLOAT_MAT4,
+              self.cam.trans_matrix_as_array()],
+             ['colourIn', GL.GL_FLOAT_VEC4, [0, 0, 0, 0]]])
         self.picking_draw()
 
         self._hud = hud.Hud(app, self)
@@ -335,11 +338,7 @@ class Level(object):
 
     def draw(self):
         """Draw the level."""
-        # TODO: Move all this drawing to a single mesh.
-        for tile_list in self.tiles:
-            for tile in tile_list:
-                if tile:
-                    tile.draw()
+        self._draw_vertex_arrays()
         self.base.draw()
 
         for tower in self._towers:
@@ -360,15 +359,13 @@ class Level(object):
     def update(self):
         """Advance the game state."""
         self.timer.update()
-        return
 
         if self.state == Level.State.defend:
             # Update enemies
-            for enemy in self.enemies:
-                enemy.update(self.timer)
-            unlink_enemies = [e for e in self.enemies if e.unlink]
-            for enemy in unlink_enemies:
-                self.enemies.remove(enemy)
+            for e in self.enemies:
+                e.update(self.timer)
+            for e in [e for e in self.enemies if e.unlink]:
+                self.enemies.remove(e)
 
             # Update towers
             for tower in self._towers:
@@ -400,7 +397,7 @@ class Level(object):
                     # TODO: Check if the tower ends up leaving no route to the
                     # base
                     if (self.tower_creator is not None and
-                        self.money >= self.tower_creator.COST):
+                            self.money >= self.tower_creator.COST):
                         tower = self.tower_creator(self._app, self, tile)
                         self._towers.append(tower)
                         tile.tower = tower
@@ -417,14 +414,21 @@ class Level(object):
             target = self._target()
             target.on_text(c)
 
-    def add_enemy(self, enemy):
+    def add_enemy(self, e):
         """Add an enemy to the level."""
-        self.enemies.append(enemy)
+        self.enemies.append(e)
 
     def tile_coords_to_array_index(self, coords):
         """Work out the array slot for a given set of axial tile coords."""
         return vector.Vector(coords.q - self._min_coords.q,
                              coords.r - self._min_coords.r)
+
+    def iter_tiles(self):
+        """Generator function for the level's tiles."""
+        for tile_list in self.tiles:
+            for tile in tile_list:
+                if tile is not None:
+                    yield tile
 
     def lookup_tile(self, coords):
         """Look up a tile from its (q, r) coordinates."""
@@ -501,6 +505,78 @@ class Level(object):
                 frontier.append(nxt)
                 visited.add(nxt)
                 nxt.path_next = tile
+
+    def _build_vertex_arrays(self):
+        # TODO: Could make data smaller with indirect buffers
+        all_verts = []
+        for tile in self.iter_tiles():
+            for s in range(tile.height):
+                face_top_verts, face_vert_verts = ([], [])
+                line_top_verts, line_vert_verts = ([], [])
+                for i in range(6):
+                    angle = 2 * math.pi / 6
+                    z = 0 + Tile.DEPTH * s
+                    px = tile.x + Tile.SIZE * math.sin(angle * (5 - i))
+                    py = tile.y + Tile.SIZE * math.cos(angle * (5 - i))
+                    face_top_verts.extend([px, py, z + Tile.DEPTH,
+                                           tile.face_colour.r,
+                                           tile.face_colour.g,
+                                           tile.face_colour.b,
+                                           tile.face_colour.a])
+                    line_top_verts.extend([px, py, z + Tile.DEPTH,
+                                           tile.outline_colour.r,
+                                           tile.outline_colour.g,
+                                           tile.outline_colour.b,
+                                           tile.outline_colour.a])
+
+                    px = tile.x + Tile.SIZE * math.sin(angle * i)
+                    py = tile.y + Tile.SIZE * math.cos(angle * i)
+                    face_vert_verts.extend([px, py, z,
+                                            tile.face_colour.r,
+                                            tile.face_colour.g,
+                                            tile.face_colour.b,
+                                            tile.face_colour.a,
+                                            px, py, z + Tile.DEPTH,
+                                            tile.face_colour.r,
+                                            tile.face_colour.g,
+                                            tile.face_colour.b,
+                                            tile.face_colour.a])
+                    line_vert_verts.extend([px, py, z,
+                                            tile.face_colour.r,
+                                            tile.face_colour.g,
+                                            tile.face_colour.b,
+                                            tile.face_colour.a,
+                                            px, py, z + Tile.DEPTH,
+                                            tile.face_colour.r,
+                                            tile.face_colour.g,
+                                            tile.face_colour.b,
+                                            tile.face_colour.a])
+                all_verts.extend(face_top_verts + face_vert_verts +
+                                 line_top_verts + line_vert_verts)
+
+        verts = numpy.array(all_verts, numpy.float32)
+        self._vao = glutils.VertexArray()
+        self._vbo = glutils.VertexBuffer()
+        with self._vao.bind():
+            self._vbo.bind()
+            GL.glBufferData(GL.GL_ARRAY_BUFFER, verts.nbytes, verts,
+                            GL.GL_STATIC_DRAW)
+            GL.glEnableVertexAttribArray(0)
+            GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, 7 * 4,
+                                     None)
+            GL.glEnableVertexAttribArray(1)
+            GL.glVertexAttribPointer(1, 4, GL.GL_FLOAT, GL.GL_FALSE, 7 * 4,
+                                     ctypes.c_void_p(12))
+
+    def _draw_vertex_arrays(self):
+        with self._vao.bind(), self._shader.use():
+            tile_count = len([t for t in self.iter_tiles()])
+            for i in range(tile_count):
+                GL.glDrawArrays(GL.GL_TRIANGLE_FAN, i * 36, 6)
+                GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 6 + i * 36, 12)
+                with glutils.linewidth(2):
+                    GL.glDrawArrays(GL.GL_LINE_LOOP, 18 + i * 36, 6)
+                    GL.glDrawArrays(GL.GL_LINES, 24 + i * 36, 12)
 
     def _update_target(self, c):
         """Check whether we have a target, and find a new one if not."""

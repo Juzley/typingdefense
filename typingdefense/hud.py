@@ -83,8 +83,16 @@ class Hud(object):
 
         self._fps = text.Text2D(app, font, '', 0, app.window_height - 32, 32)
 
+        self._frametime = 0
+
     def draw(self):
-        self._fps.draw(str(round(1 / self._level.timer.frametime)))
+        # Smooth the FPS counter
+        if self._frametime == 0:
+            self._frametime = self._level.timer.frametime
+        else:
+            self._frametime = (self._frametime * 0.95 +
+                               self._level.timer.frametime * 0.05)
+        self._fps.draw(str(round(1 / self._frametime)))
         self._money.draw(str(self._level.money))
 
         if (self._animation_state != Hud.AnimationState.none and
